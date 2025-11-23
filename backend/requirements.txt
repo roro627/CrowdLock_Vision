@@ -1,0 +1,11 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==1.10.18
+opencv-python-headless==4.10.0.84
+ultralytics==8.3.14
+# CPU-only Torch to keep image small; compatible with ultralytics.
+torch==2.2.2+cpu
+torchvision==0.17.2+cpu
+numpy==1.26.4
+typer==0.12.5
+pyyaml==6.0.2

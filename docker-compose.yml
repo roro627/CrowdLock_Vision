@@ -1,0 +1,26 @@
+version: '3.9'
+services:
+  backend:
+    build: .
+    image: crowdlock-backend
+    container_name: crowdlock-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ./config/backend.config.yml:/app/config/backend.config.yml:ro
+      - ./testdata/videos:/app/testdata/videos:ro
+  web:
+    build:
+      context: ./web
+      args:
+        - VITE_API_BASE=http://backend:8000
+    image: crowdlock-web
+    container_name: crowdlock-web
+    ports:
+      - "5173:80"
+    environment:
+      - VITE_API_BASE=http://backend:8000
+    depends_on:
+      - backend
