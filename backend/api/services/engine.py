@@ -102,7 +102,7 @@ class VideoEngine:
                 continue
             start = time.time()
             try:
-                summary, processed_frame = self.pipeline.process(frame)
+                summary, processed_frame = self.pipeline.process(frame, inference_width=self.settings.inference_width)
             except Exception:
                 logger.exception("Pipeline processing failed")
                 continue
@@ -115,8 +115,14 @@ class VideoEngine:
                 )
             with self._lock:
                 self._latest_summary = summary
-            annotated = draw_overlays(processed_frame, summary)
-            ok, jpg = cv2.imencode('.jpg', annotated)
+            
+            if self.settings.enable_backend_overlays:
+                annotated = draw_overlays(processed_frame, summary)
+            else:
+                annotated = processed_frame
+
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), self.settings.jpeg_quality]
+            ok, jpg = cv2.imencode('.jpg', annotated, encode_param)
             if not ok:
                 continue
             with self._lock:

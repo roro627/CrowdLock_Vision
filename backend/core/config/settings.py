@@ -6,7 +6,12 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
-from pydantic import BaseSettings, Field
+from pydantic import Field
+
+try:  # Pydantic v2
+    from pydantic_settings import BaseSettings
+except ModuleNotFoundError:  # pragma: no cover - fallback for v1 envs
+    from pydantic import BaseSettings  # type: ignore[attr-defined]
 
 
 class BackendSettings(BaseSettings):
@@ -17,7 +22,12 @@ class BackendSettings(BaseSettings):
     device: Optional[str] = None
     confidence: float = 0.35
     grid_size: str = Field("10x10", description="e.g. 8x8")
-    smoothing: float = 0.2
+    smoothing: float = 0.9
+    
+    # Performance settings
+    inference_width: int = 640
+    jpeg_quality: int = 70
+    enable_backend_overlays: bool = False
 
     class Config:
         env_prefix = "CLV_"

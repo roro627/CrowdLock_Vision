@@ -10,7 +10,7 @@ from backend.core.types import Point
 @dataclass
 class DensityConfig:
     grid_size: Tuple[int, int] = (10, 10)
-    smoothing: float = 0.2  # exponential smoothing factor
+    smoothing: float = 0.9  # exponential smoothing factor (retention rate)
 
 
 class DensityMap:

@@ -16,8 +16,11 @@ function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: 
   if (!ctx) return;
   const { width, height } = canvas;
   ctx.clearRect(0, 0, width, height);
-  const scaleX = width / 1280; // assume stream roughly 1280; scaled drawing is approximate
-  const scaleY = height / 720;
+
+  // Use frame_size from payload if available, otherwise fallback to 1280x720
+  const [frameW, frameH] = payload.frame_size || [1280, 720];
+  const scaleX = width / frameW;
+  const scaleY = height / frameH;
 
   payload.persons.forEach((p) => {
     const [x1, y1, x2, y2] = p.bbox;

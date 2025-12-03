@@ -22,7 +22,10 @@ def iou(boxA: BBox, boxB: BBox) -> float:
         return 0.0
     boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
     boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
-    return interArea / float(boxAArea + boxBArea - interArea + 1e-6)
+    union = boxAArea + boxBArea - interArea
+    if union <= 0:
+        return 0.0
+    return interArea / float(union)
 
 
 @dataclass

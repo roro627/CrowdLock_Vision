@@ -20,6 +20,7 @@ export interface FramePayload {
   persons: Person[];
   density: Density;
   fps: number;
+  frame_size: [number, number];
 }
 
 export interface StatsPayload {

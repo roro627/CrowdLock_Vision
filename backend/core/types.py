@@ -33,4 +33,5 @@ class FrameSummary:
     persons: List[TrackedPerson]
     density: dict
     fps: float
+    frame_size: Tuple[int, int] = (0, 0)
 

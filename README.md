@@ -25,6 +25,11 @@ testdata/   Sample videos for validation
 4. Frontend: `cd web && npm install && npm run dev -- --host` then open http://localhost:5173.
    - Dashboard shows live overlays and lets you change source (webcam/file/rtsp), model name, and confidence via the **Video Input** card.
 
+### One-liner dev stack
+- `python scripts/dev/start_stack.py` launches backend + frontend with graceful shutdown (backend uses Docker by default).
+- `make dev` does the same via the new Makefile; call `make help` to see all targets.
+- Add `--backend-mode local` (or `BACKEND_MODE=local make dev`) to run the backend directly with uvicorn instead of Docker.
+
 ## Config
 - Copy `config/backend.config.example.yml` to `config/backend.config.yml` and adjust:
   - `video_source`: `webcam|file|rtsp`

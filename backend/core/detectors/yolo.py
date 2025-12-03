@@ -9,9 +9,9 @@ from backend.core.types import Detection
 
 
 class YoloPersonDetector:
-    def __init__(self, model_name: str = "yolov8n-pose.pt", device: str | None = None, conf: float = 0.3):
-        self.model = YOLO(model_name)
-        if device:
+    def __init__(self, model_name: str = "yolov8n-pose.pt", device: str | None = None, conf: float = 0.3, task: str | None = None):
+        self.model = YOLO(model_name, task=task)
+        if device and not model_name.endswith('.onnx'):
             self.model.to(device)
         self.conf = conf
 

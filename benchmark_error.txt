@@ -1,0 +1,15 @@
+Traceback (most recent call last):
+  File "D:\mega\dev\CrowdLock_Vision\backend\benchmark_vision.py", line 41, in run_benchmark
+    detector = YoloPersonDetector(model_name=model_name, device=device, task="detect")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\mega\dev\CrowdLock_Vision\backend\core\detectors\yolo.py", line 15, in __init__
+    self.model.to(device)
+  File "C:\Users\romai\AppData\Local\Programs\Python\Python311\Lib\site-packages\torch\nn\modules\module.py", line 1355, in to
+    return self._apply(convert)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\romai\AppData\Local\Programs\Python\Python311\Lib\site-packages\ultralytics\engine\model.py", line 855, in _apply
+    self._check_is_pytorch_model()
+  File "C:\Users\romai\AppData\Local\Programs\Python\Python311\Lib\site-packages\ultralytics\engine\model.py", line 320, in _check_is_pytorch_model
+    raise TypeError(
+TypeError: model='yolov8n.onnx' should be a *.pt PyTorch model to run this method, but is a different format. PyTorch models can train, val, predict and export, i.e. 'model.train(data=...)', but exported formats like ONNX, TensorRT etc. only support 'predict' and 'val' modes, i.e. 'yolo predict model=yolo11n.onnx'.
+To run CUDA or MPS inference please pass the device argument directly in your inference command, i.e. 'model.predict(source=..., device=0)'
