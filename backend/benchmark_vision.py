@@ -44,7 +44,8 @@ def run_benchmark(device: str, duration_sec: int = 10, resolution: tuple = (1920
 
     # Initialize pipeline
     try:
-        detector = YoloPersonDetector(model_name=model_name, device=device, task="detect")
+        # ONNX models should not receive .to(device)
+        detector = YoloPersonDetector(model_name=model_name, device=None if model_name.endswith(".onnx") else device, task="detect")
         pipeline = VisionPipeline(detector=detector)
     except Exception as e:
         import traceback
@@ -92,16 +93,18 @@ def run_benchmark(device: str, duration_sec: int = 10, resolution: tuple = (1920
     print(f"  P95: {np.percentile(latencies, 95):.2f}")
     print(f"  P99: {np.percentile(latencies, 99):.2f}")
 
-    import json
     results = {
         "device": device,
         "optimize": optimize,
+        "resolution": list(resolution),
+        "inference_width": inference_width,
         "fps": float(avg_fps),
-        "latency_avg": float(np.mean(latencies)),
-        "latency_p99": float(np.percentile(latencies, 99))
+        "latency_avg_ms": float(np.mean(latencies)),
+        "latency_p99_ms": float(np.percentile(latencies, 99)),
+        "frames": frame_count,
+        "duration_sec": duration_sec,
     }
-    with open("benchmark_results.json", "w") as f:
-        json.dump(results, f, indent=4)
+    return results
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark CrowdLock Vision Pipeline")
@@ -129,13 +132,22 @@ if __name__ == "__main__":
     else:
         devices.append(args.device)
     
+    all_results = []
     for device in devices:
         # Only optimize CPU for now
         do_optimize = args.optimize and device == 'cpu'
-        run_benchmark(
+        res = run_benchmark(
             device=device,
             duration_sec=args.duration,
             resolution=(args.width, args.height),
             inference_width=args.inference_width,
             optimize=do_optimize
         )
+        if res:
+            all_results.append(res)
+
+    if all_results:
+        import json
+        with open("benchmark_results.json", "w") as f:
+            json.dump(all_results, f, indent=4)
+        print("Saved results to benchmark_results.json")

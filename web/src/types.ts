@@ -27,5 +27,5 @@ export interface StatsPayload {
   total_persons: number;
   fps: number;
   densest_cell?: [number, number];
+  error?: string | null;
 }
-

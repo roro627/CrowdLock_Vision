@@ -35,6 +35,7 @@ testdata/   Sample videos for validation
   - `video_source`: `webcam|file|rtsp`
   - `video_path` / `rtsp_url`
   - `model_name`, `confidence`, `grid_size`, `smoothing`
+  - `inference_width`, `jpeg_quality`, `enable_backend_overlays`
 - Env vars override (prefix `CLV_`, see `config/app.example.env`).
 
 ## API
@@ -56,8 +57,8 @@ python -m backend.tools.run_on_video --input testdata/videos/855564-hd_1920_1080
 ## Docker
 - Build images: `docker compose build`
 - Run stack: `docker compose up`
+- GPU: docker compose includes a GPU reservation; ensure the NVIDIA runtime is available or remove `device_requests` if CPU-only.
+- Build args: set `TORCH_INDEX` to use GPU wheels (e.g., `--build-arg TORCH_INDEX=https://download.pytorch.org/whl/cu124`).
 
-## Definition of Done
-- Full pipeline implemented: detection (YOLOv8 pose), tracking, target computation, density map, MJPEG + metadata streams.
-- React dashboard renders overlays and controls.
-- Tests provided for target computation and density smoothing.
+## Assets & modèles
+- Les poids YOLO ne sont plus versionnés. Ultralytics télécharge automatiquement les modèles manquants au premier lancement.

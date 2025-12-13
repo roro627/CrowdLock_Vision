@@ -4,6 +4,7 @@ import asyncio
 import logging
 import threading
 import time
+from pathlib import Path
 from typing import Any, Optional
 
 import cv2
@@ -45,10 +46,14 @@ class VideoEngine:
         self._capture_lock = threading.Lock()
         self._capture_event = threading.Event()
         self._latest_captured_frame: Optional[Any] = None
+        self.last_error: Optional[str] = None
 
     def _make_source(self) -> VideoSource:
         if self.settings.video_source == "file" and self.settings.video_path:
-            return FileSource(self.settings.video_path)
+            video_path = Path(self.settings.video_path)
+            if not video_path.exists():
+                raise RuntimeError(f"Video path not found: {video_path}")
+            return FileSource(str(video_path))
         if self.settings.video_source == "rtsp" and self.settings.rtsp_url:
             return RTSPSource(self.settings.rtsp_url)
         return WebcamSource(0)
@@ -59,9 +64,11 @@ class VideoEngine:
         try:
             self.source = self._make_source()
         except Exception:
-            logger.exception("Failed to initialize video source in start")
+            self.last_error = "Failed to initialize video source"
+            logger.exception(self.last_error)
             return
         self.running = True
+        self.last_error = None
         self._capture_event.clear()
         self._capture_thread = threading.Thread(target=self._capture_loop, daemon=True)
         self._process_thread = threading.Thread(target=self._process_loop, daemon=True)
@@ -103,8 +110,10 @@ class VideoEngine:
             start = time.time()
             try:
                 summary, processed_frame = self.pipeline.process(frame, inference_width=self.settings.inference_width)
+                self.last_error = None
             except Exception:
-                logger.exception("Pipeline processing failed")
+                self.last_error = "Pipeline processing failed"
+                logger.exception(self.last_error)
                 continue
             duration = time.time() - start
             if self._avg_processing_time == 0:
@@ -160,4 +169,3 @@ class VideoEngine:
                 last_id = summary.frame_id
                 yield summary
             await asyncio.sleep(0.02)
-

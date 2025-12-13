@@ -1,7 +1,0 @@
-{
-    "device": "cpu",
-    "optimize": true,
-    "fps": 16.575592095399,
-    "latency_avg": 58.752578425120156,
-    "latency_p99": 185.2298259735107
-}

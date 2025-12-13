@@ -9,6 +9,9 @@ export interface BackendConfig {
   confidence: number;
   grid_size: string;
   smoothing: number;
+  inference_width?: number | null;
+  jpeg_quality?: number | null;
+  enable_backend_overlays?: boolean;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

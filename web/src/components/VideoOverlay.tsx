@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FramePayload } from '../types';
 import clsx from 'clsx';
 
@@ -9,6 +9,8 @@ interface Props {
   showBody: boolean;
   showDensity: boolean;
   videoUrl: string;
+  connection: string;
+  backendError?: string | null;
 }
 
 function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: Props) {
@@ -70,28 +72,56 @@ function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: 
   }
 }
 
-export function VideoOverlay({ frame, showBoxes, showHead, showBody, showDensity, videoUrl }: Props) {
+export function VideoOverlay({ frame, showBoxes, showHead, showBody, showDensity, videoUrl, connection, backendError }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [canvasSize, setCanvasSize] = useState<{ w: number; h: number }>({ w: 1280, h: 720 });
+
+  // Keep canvas resolution in sync with rendered video size to avoid overlay drift.
+  useEffect(() => {
+    const resize = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const w = Math.max(1, Math.round(rect.width));
+      const h = Math.max(1, Math.round(rect.height));
+      setCanvasSize({ w, h });
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
 
   useEffect(() => {
-    if (frame && canvasRef.current) {
-      drawOverlay(canvasRef.current, frame, {
+    const canvas = canvasRef.current;
+    if (frame && canvas) {
+      canvas.width = canvasSize.w;
+      canvas.height = canvasSize.h;
+      drawOverlay(canvas, frame, {
         frame,
         showBoxes,
         showHead,
         showBody,
         showDensity,
-        videoUrl
+        videoUrl,
+        connection,
+        backendError,
       });
     }
-  }, [frame, showBoxes, showHead, showBody, showDensity, videoUrl]);
+  }, [frame, showBoxes, showHead, showBody, showDensity, videoUrl, canvasSize, connection, backendError]);
 
   return (
-    <div className="relative w-full max-h-[70vh] aspect-video overflow-hidden rounded-2xl border border-slate-800 shadow-2xl">
+    <div
+      ref={containerRef}
+      className="relative w-full max-h-[70vh] aspect-video overflow-hidden rounded-2xl border border-slate-800 shadow-2xl"
+    >
       <img src={videoUrl} className={clsx('w-full h-full object-cover block', 'bg-slate-950')} alt="Video stream" />
-      <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" width={1280} height={720} />
-      <div className="absolute left-3 bottom-3 text-sm text-slate-200 bg-slate-900/60 px-3 py-1 rounded-full">
-        {frame ? `${frame.fps.toFixed(1)} fps • ${frame.persons.length} people` : 'Waiting for stream'}
+      <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
+      <div className="absolute left-3 bottom-3 text-sm text-slate-200 bg-slate-900/60 px-3 py-1 rounded-full space-x-2 flex items-center">
+        <span className="text-xs uppercase tracking-wide text-slate-400">{connection}</span>
+        <span>•</span>
+        <span>{frame ? `${frame.fps.toFixed(1)} fps / ${frame.persons.length} people` : 'Buffering…'}</span>
+        {backendError && <span className="text-red-400">({backendError})</span>}
       </div>
     </div>
   );

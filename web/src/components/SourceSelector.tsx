@@ -13,7 +13,10 @@ const defaultCfg: BackendConfig = {
   device: null,
   confidence: 0.35,
   grid_size: '10x10',
-  smoothing: 0.2
+  smoothing: 0.2,
+  inference_width: 640,
+  jpeg_quality: 70,
+  enable_backend_overlays: false
 };
 
 export function SourceSelector({ onStatus }: Props) {
@@ -26,7 +29,7 @@ export function SourceSelector({ onStatus }: Props) {
       .catch(() => onStatus('error'));
   }, [onStatus]);
 
-  const handleChange = (key: keyof BackendConfig, value: string | number) => {
+  const handleChange = (key: keyof BackendConfig, value: string | number | boolean | null) => {
     setCfg((c) => ({ ...c, [key]: value } as BackendConfig));
   };
 
@@ -95,15 +98,77 @@ export function SourceSelector({ onStatus }: Props) {
           />
         </label>
         <label className="flex items-center gap-2">
+          <span className="w-28 text-sm text-slate-300">Device</span>
+          <input
+            className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
+            value={cfg.device || ''}
+            onChange={(e) => handleChange('device', e.target.value || null)}
+            placeholder="cpu | cuda:0"
+          />
+        </label>
+        <label className="flex items-center gap-2">
           <span className="w-28 text-sm text-slate-300">Confidence</span>
           <input
             type="number"
-            min="0"
+            min="0.01"
             max="1"
             step="0.01"
             className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
             value={cfg.confidence}
             onChange={(e) => handleChange('confidence', parseFloat(e.target.value))}
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="w-28 text-sm text-slate-300">Grid</span>
+          <input
+            className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
+            value={cfg.grid_size}
+            onChange={(e) => handleChange('grid_size', e.target.value)}
+            placeholder="10x10"
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="w-28 text-sm text-slate-300">Smoothing</span>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.05"
+            className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
+            value={cfg.smoothing}
+            onChange={(e) => handleChange('smoothing', parseFloat(e.target.value))}
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="w-28 text-sm text-slate-300">Infer width</span>
+          <input
+            type="number"
+            min="64"
+            step="16"
+            className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
+            value={cfg.inference_width ?? 640}
+            onChange={(e) => handleChange('inference_width', parseInt(e.target.value, 10))}
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="w-28 text-sm text-slate-300">JPEG %</span>
+          <input
+            type="number"
+            min="10"
+            max="100"
+            step="5"
+            className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
+            value={cfg.jpeg_quality ?? 70}
+            onChange={(e) => handleChange('jpeg_quality', parseInt(e.target.value, 10))}
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span className="w-28 text-sm text-slate-300">Server overlay</span>
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={Boolean(cfg.enable_backend_overlays)}
+            onChange={(e) => handleChange('enable_backend_overlays', e.target.checked)}
           />
         </label>
       </div>

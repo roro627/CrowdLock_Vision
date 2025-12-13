@@ -9,13 +9,23 @@ from backend.core.types import Detection
 
 
 class YoloPersonDetector:
-    def __init__(self, model_name: str = "yolov8n-pose.pt", device: str | None = None, conf: float = 0.3, task: str | None = None):
+    def __init__(
+        self,
+        model_name: str = "yolov8n-pose.pt",
+        device: str | None = None,
+        conf: float = 0.3,
+        task: str | None = None,
+    ):
+        self.model_name = model_name
+        self.is_onnx = model_name.lower().endswith(".onnx")
+        # Avoid .to(device) on ONNX exports; Ultralytics raises TypeError
         self.model = YOLO(model_name, task=task)
-        if device and not model_name.endswith('.onnx'):
+        if device and not self.is_onnx:
             self.model.to(device)
         self.conf = conf
 
     def detect(self, frame) -> List[Detection]:
+        # ONNX models ignore .to(device); device selection handled by runtime
         results = self.model.predict(frame, conf=self.conf, verbose=False)
         detections: List[Detection] = []
         for result in results:
@@ -33,4 +43,3 @@ class YoloPersonDetector:
                     keypoints = kpts.data[i].cpu().numpy()
                 detections.append(Detection(bbox=(x1, y1, x2, y2), confidence=conf, keypoints=keypoints))
         return detections
-

@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
-import type { FramePayload } from '../types';
+import type { FramePayload, StatsPayload } from '../types';
 
 interface Props {
   frame: FramePayload | null;
+  stats: StatsPayload | null;
+  statsError: string | null;
   toggles: {
     showBoxes: boolean;
     showHead: boolean;
@@ -23,13 +25,16 @@ const ToggleRow = ({ label, value, onClick }: { label: string; value: boolean; o
   </button>
 );
 
-export function Sidebar({ frame, toggles, onToggle, connection }: Props) {
-  const densest = useMemo(() => frame?.density?.max_cell ?? null, [frame]);
+export function Sidebar({ frame, stats, statsError, toggles, onToggle, connection }: Props) {
+  const densest = useMemo(() => frame?.density?.max_cell ?? stats?.densest_cell ?? null, [frame, stats]);
+  const fps = frame?.fps ?? stats?.fps ?? 0;
+  const people = frame?.persons.length ?? stats?.total_persons ?? 0;
   return (
     <div className="card p-4 space-y-4 w-full md:w-80">
       <div>
         <p className="text-xs uppercase tracking-wide text-slate-400">Connection</p>
         <p className="text-lg font-semibold text-accent">{connection}</p>
+        {statsError && <p className="text-xs text-red-400">Backend: {statsError}</p>}
       </div>
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-wide text-slate-400">Overlays</p>
@@ -41,11 +46,11 @@ export function Sidebar({ frame, toggles, onToggle, connection }: Props) {
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div className="card p-3">
           <p className="text-slate-400 text-xs">People</p>
-          <p className="text-2xl font-bold">{frame?.persons.length ?? 0}</p>
+          <p className="text-2xl font-bold">{people}</p>
         </div>
         <div className="card p-3">
           <p className="text-slate-400 text-xs">FPS</p>
-          <p className="text-2xl font-bold">{frame ? frame.fps.toFixed(1) : '0.0'}</p>
+          <p className="text-2xl font-bold">{fps.toFixed(1)}</p>
         </div>
         <div className="card p-3 col-span-2">
           <p className="text-slate-400 text-xs">Densest Cell</p>

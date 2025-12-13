@@ -1,4 +1,4 @@
-video_source: webcam
+video_source: file
 video_path: testdata/videos/855564-hd_1920_1080_24fps.mp4
 rtsp_url: null
 model_name: yolov8n-pose.pt
@@ -6,3 +6,6 @@ device: null
 confidence: 0.35
 grid_size: 10x10
 smoothing: 0.2
+inference_width: 640
+jpeg_quality: 70
+enable_backend_overlays: false

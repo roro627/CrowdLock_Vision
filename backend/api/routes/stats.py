@@ -13,8 +13,12 @@ router = APIRouter()
 def stats(engine: VideoEngine = Depends(get_engine)):
     summary = engine.latest_summary()
     if summary is None:
-        return StatsSchema(total_persons=0, fps=0.0, densest_cell=None)
+        return StatsSchema(total_persons=0, fps=0.0, densest_cell=None, error=engine.last_error)
     density = summary.density or {}
     max_cell = density.get("max_cell") if density else None
-    return StatsSchema(total_persons=len(summary.persons), fps=summary.fps, densest_cell=max_cell)
-
+    return StatsSchema(
+        total_persons=len(summary.persons),
+        fps=summary.fps,
+        densest_cell=max_cell,
+        error=engine.last_error,
+    )
