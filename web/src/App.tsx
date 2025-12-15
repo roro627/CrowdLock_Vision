@@ -4,12 +4,13 @@ import Sidebar from './components/Sidebar';
 import SourceSelector from './components/SourceSelector';
 import { useMetadataStream } from './hooks/useWebsocket';
 import { useStats } from './hooks/useStats';
+import { api } from './api/client';
 import './styles/index.css';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+const API_BASE = api.base;
 
 function App() {
-  const wsUrl = useMemo(() => API_BASE.replace('http', 'ws') + '/stream/metadata', []);
+  const wsUrl = useMemo(() => API_BASE.replace('http', 'ws') + '/stream/metadata', [API_BASE]);
   const videoUrl = `${API_BASE}/stream/video`;
   const { latest, status } = useMetadataStream(wsUrl);
   const { stats, error: statsError } = useStats(API_BASE);

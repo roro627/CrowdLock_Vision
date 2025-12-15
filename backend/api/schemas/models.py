@@ -1,36 +1,35 @@
 from __future__ import annotations
 
-from typing import List, Tuple
-
 from pydantic import BaseModel, Field, validator
 
 
 class PersonSchema(BaseModel):
     id: int
-    bbox: Tuple[float, float, float, float]
-    head_center: Tuple[float, float]
-    body_center: Tuple[float, float]
+    bbox: tuple[float, float, float, float]
+    head_center: tuple[float, float]
+    body_center: tuple[float, float]
     confidence: float
 
 
 class DensitySchema(BaseModel):
-    grid_size: List[int]
+    grid_size: list[int]
     cells: list
-    max_cell: List[int]
+    max_cell: list[int]
 
 
 class FrameSchema(BaseModel):
     frame_id: int
     timestamp: float
-    persons: List[PersonSchema]
+    persons: list[PersonSchema]
     density: DensitySchema | dict
     fps: float
+    frame_size: tuple[int, int] | list[int]
 
 
 class StatsSchema(BaseModel):
     total_persons: int
     fps: float
-    densest_cell: List[int] | None
+    densest_cell: list[int] | None
     error: str | None = None
 
 

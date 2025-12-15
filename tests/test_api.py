@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.main import app
 from backend.api.services.state import get_engine
+from backend.api.services import state as engine_state
 from backend.core.types import FrameSummary, TrackedPerson
 
 
@@ -16,6 +17,32 @@ class DummyEngine:
     # websocket generators are unused in these tests
 
 
+def test_metadata_websocket_includes_frame_size():
+    client = TestClient(app)
+    summary = FrameSummary(
+        frame_id=1,
+        timestamp=0.0,
+        persons=[],
+        density={"grid_size": [10, 10], "cells": [], "max_cell": [0, 0]},
+        fps=12.3,
+        frame_size=(1920, 1080),
+    )
+
+    class WSEngine(DummyEngine):
+        async def metadata_stream(self):
+            yield summary
+
+    previous = engine_state._engine
+    engine_state._engine = WSEngine(summary=summary)
+    try:
+        with client.websocket_connect("/stream/metadata") as ws:
+            data = ws.receive_json()
+            assert data["frame_id"] == 1
+            assert data["frame_size"] == [1920, 1080]
+    finally:
+        engine_state._engine = previous
+
+
 def test_health_endpoint():
     client = TestClient(app)
     res = client.get("/health")
@@ -28,7 +55,11 @@ def test_stats_with_summary():
     summary = FrameSummary(
         frame_id=1,
         timestamp=0.0,
-        persons=[TrackedPerson(id=1, bbox=(0, 0, 10, 10), head_center=(1, 1), body_center=(2, 2), confidence=0.9)],
+        persons=[
+            TrackedPerson(
+                id=1, bbox=(0, 0, 10, 10), head_center=(1, 1), body_center=(2, 2), confidence=0.9
+            )
+        ],
         density={"max_cell": [0, 0]},
         fps=12.3,
         frame_size=(100, 100),

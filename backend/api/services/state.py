@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from typing import Optional
-
-from backend.core.config.settings import BackendSettings, load_settings
-from backend.api.services.engine import VideoEngine
-
 from threading import RLock
 
-_settings: Optional[BackendSettings] = None
-_engine: Optional[VideoEngine] = None
+from backend.api.services.engine import VideoEngine
+from backend.core.config.settings import BackendSettings, load_settings
+
+_settings: BackendSettings | None = None
+_engine: VideoEngine | None = None
 _lock = RLock()
 
 
@@ -44,3 +42,10 @@ def get_engine() -> VideoEngine:
             _engine.start()
     return _engine
 
+
+def stop_engine() -> None:
+    global _engine
+    with _lock:
+        if _engine is not None:
+            _engine.stop()
+            _engine = None

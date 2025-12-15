@@ -1,19 +1,16 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import cv2
 
 
 class VideoSource(ABC):
     @abstractmethod
-    def read(self):
-        ...
+    def read(self): ...
 
     @abstractmethod
-    def close(self):
-        ...
+    def close(self): ...
 
 
 class OpenCVSource(VideoSource):
@@ -36,15 +33,15 @@ class WebcamSource(OpenCVSource):
     def __init__(self, index: int = 0):
         # Try multiple backends and indices to find a working camera
         self.cap = None
-        
+
         # List of (index, backend) tuples to try
         # We try index 0 then 1, with DSHOW (best for Windows) then MSMF then default
         candidates = [
             (index, cv2.CAP_DSHOW),
             (index, cv2.CAP_MSMF),
             (index, cv2.CAP_ANY),
-            (index + 1, cv2.CAP_DSHOW), # Try next index (often 1 on laptops with IR cams)
-            (index + 1, cv2.CAP_ANY)
+            (index + 1, cv2.CAP_DSHOW),  # Try next index (often 1 on laptops with IR cams)
+            (index + 1, cv2.CAP_ANY),
         ]
 
         for idx, backend in candidates:
@@ -61,7 +58,7 @@ class WebcamSource(OpenCVSource):
                         cap.release()
             except Exception:
                 continue
-        
+
         if self.cap is None or not self.cap.isOpened():
             raise RuntimeError(f"Failed to open video source: {index} (and fallback {index+1})")
 
@@ -79,4 +76,3 @@ class FileSource(OpenCVSource):
 class RTSPSource(OpenCVSource):
     def __init__(self, url: str):
         super().__init__(url)
-

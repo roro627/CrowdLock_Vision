@@ -20,8 +20,9 @@ export function useStats(apiBase: string) {
           setStats(data);
           setError(data.error ?? null);
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e.message || 'Failed to fetch stats');
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to fetch stats';
+        if (!cancelled) setError(message);
       } finally {
         if (!cancelled) timer = window.setTimeout(fetchStats, POLL_MS);
       }
@@ -37,4 +38,3 @@ export function useStats(apiBase: string) {
 
   return { stats, error };
 }
-

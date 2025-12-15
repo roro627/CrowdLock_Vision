@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -42,10 +41,10 @@ class SimpleTracker:
     def __init__(self, iou_threshold: float = 0.3, max_missed: int = 30):
         self.iou_threshold = iou_threshold
         self.max_missed = max_missed
-        self.tracks: Dict[int, Track] = {}
+        self.tracks: dict[int, Track] = {}
         self._id_iter = itertools.count(1)
 
-    def update(self, detections: List[Detection]) -> List[TrackedPerson]:
+    def update(self, detections: list[Detection]) -> list[TrackedPerson]:
         assigned_tracks = set()
         assigned_dets = set()
 
@@ -116,4 +115,3 @@ class SimpleTracker:
             )
             for track in self.tracks.values()
         ]
-

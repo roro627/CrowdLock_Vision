@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from pydantic import Field, validator
@@ -15,14 +14,14 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for v1 envs
 
 class BackendSettings(BaseSettings):
     video_source: str = Field("file", description="webcam|file|rtsp")
-    video_path: Optional[str] = None
-    rtsp_url: Optional[str] = None
+    video_path: str | None = None
+    rtsp_url: str | None = None
     model_name: str = Field("yolov8n-pose.pt")
-    device: Optional[str] = None
+    device: str | None = None
     confidence: float = 0.35
     grid_size: str = Field("10x10", description="e.g. 8x8")
     smoothing: float = 0.2
-    
+
     # Performance settings
     inference_width: int = 640
     jpeg_quality: int = 70
@@ -68,7 +67,7 @@ def load_settings() -> BackendSettings:
     data = {}
     path = _config_path()
     if path.exists():
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     # Environment variables (handled by BaseSettings) override YAML values.
     return BackendSettings(**data)

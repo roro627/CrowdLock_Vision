@@ -5,18 +5,18 @@ import logging
 import threading
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import cv2
 
-from backend.core.analytics.pipeline import VisionPipeline
 from backend.core.analytics.density import DensityConfig
+from backend.core.analytics.pipeline import VisionPipeline
 from backend.core.config.settings import BackendSettings, density_from_settings
 from backend.core.detectors.yolo import YoloPersonDetector
-from backend.core.trackers.simple_tracker import SimpleTracker
-from backend.core.video_sources.base import FileSource, RTSPSource, VideoSource, WebcamSource
 from backend.core.overlay.draw import draw_overlays
+from backend.core.trackers.simple_tracker import SimpleTracker
 from backend.core.types import FrameSummary
+from backend.core.video_sources.base import FileSource, RTSPSource, VideoSource, WebcamSource
 
 logger = logging.getLogger(__name__)
 
@@ -36,17 +36,17 @@ class VideoEngine:
             self._target_fps = 30.0
         self._avg_processing_time = 0.0
         self._proc_alpha = 0.1
-        self.source: Optional[VideoSource] = None
+        self.source: VideoSource | None = None
         self.running = False
-        self._capture_thread: Optional[threading.Thread] = None
-        self._process_thread: Optional[threading.Thread] = None
+        self._capture_thread: threading.Thread | None = None
+        self._process_thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._latest_frame = None
-        self._latest_summary: Optional[FrameSummary] = None
+        self._latest_summary: FrameSummary | None = None
         self._capture_lock = threading.Lock()
         self._capture_event = threading.Event()
-        self._latest_captured_frame: Optional[Any] = None
-        self.last_error: Optional[str] = None
+        self._latest_captured_frame: Any | None = None
+        self.last_error: str | None = None
 
     def _make_source(self) -> VideoSource:
         if self.settings.video_source == "file" and self.settings.video_path:
@@ -109,7 +109,9 @@ class VideoEngine:
                 continue
             start = time.time()
             try:
-                summary, processed_frame = self.pipeline.process(frame, inference_width=self.settings.inference_width)
+                summary, processed_frame = self.pipeline.process(
+                    frame, inference_width=self.settings.inference_width
+                )
                 self.last_error = None
             except Exception:
                 self.last_error = "Pipeline processing failed"
@@ -120,18 +122,18 @@ class VideoEngine:
                 self._avg_processing_time = duration
             else:
                 self._avg_processing_time = (
-                    (1.0 - self._proc_alpha) * self._avg_processing_time + self._proc_alpha * duration
-                )
+                    1.0 - self._proc_alpha
+                ) * self._avg_processing_time + self._proc_alpha * duration
             with self._lock:
                 self._latest_summary = summary
-            
+
             if self.settings.enable_backend_overlays:
                 annotated = draw_overlays(processed_frame, summary)
             else:
                 annotated = processed_frame
 
             encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), self.settings.jpeg_quality]
-            ok, jpg = cv2.imencode('.jpg', annotated, encode_param)
+            ok, jpg = cv2.imencode(".jpg", annotated, encode_param)
             if not ok:
                 continue
             with self._lock:
@@ -147,7 +149,7 @@ class VideoEngine:
         with self._lock:
             return self._latest_frame
 
-    def latest_summary(self) -> Optional[FrameSummary]:
+    def latest_summary(self) -> FrameSummary | None:
         with self._lock:
             return self._latest_summary
 
@@ -156,8 +158,7 @@ class VideoEngine:
         while True:
             frame = self.latest_frame()
             if frame is not None and frame != last_sent:
-                yield (b"--frame\r\n"
-                       b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
+                yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
                 last_sent = frame
             await asyncio.sleep(0.02)
 

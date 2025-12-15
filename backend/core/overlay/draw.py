@@ -20,7 +20,16 @@ def draw_overlays(frame: np.ndarray, summary: FrameSummary) -> np.ndarray:
         cv2.circle(img, (int(person.head_center[0]), int(person.head_center[1])), 4, HEAD_COLOR, -1)
         cv2.circle(img, (int(person.body_center[0]), int(person.body_center[1])), 6, BODY_COLOR, 2)
         label = f"ID {person.id}"
-        cv2.putText(img, label, (x1, max(y1 - 8, 0)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, TEXT_COLOR, 1, cv2.LINE_AA)
+        cv2.putText(
+            img,
+            label,
+            (x1, max(y1 - 8, 0)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            TEXT_COLOR,
+            1,
+            cv2.LINE_AA,
+        )
 
     # density heatmap overlay
     density = summary.density
@@ -49,4 +58,3 @@ def draw_overlays(frame: np.ndarray, summary: FrameSummary) -> np.ndarray:
                 x2, y2 = int((i + 1) * cell_w), int((j + 1) * cell_h)
                 cv2.rectangle(img, (x1, y1), (x2, y2), DENSITY_MAX_COLOR, 2)
     return img
-

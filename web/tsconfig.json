@@ -13,7 +13,9 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "strict": true,
     "noEmit": true,
+    "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo/tsconfig.tsbuildinfo",
     "jsx": "react-jsx",
     "types": [
       "vitest/globals",

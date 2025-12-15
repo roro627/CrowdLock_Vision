@@ -1,9 +1,9 @@
-import cv2
-import pytest
 from pathlib import Path
 
-from backend.core.analytics.pipeline import VisionPipeline
+import cv2
+import pytest
 
+from backend.core.analytics.pipeline import VisionPipeline
 
 ROOT = Path(__file__).resolve().parents[1]
 VIDEOS_DIR = ROOT / "testdata" / "videos"

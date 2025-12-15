@@ -12,7 +12,6 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
 
 CREATE_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
 CREATE_NEW_CONSOLE = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
@@ -27,10 +26,12 @@ class ManagedProcess:
 
 class ProcessManager:
     def __init__(self, separate_consoles: bool) -> None:
-        self.processes: List[ManagedProcess] = []
+        self.processes: list[ManagedProcess] = []
         self.separate_consoles = separate_consoles
 
-    def start(self, name: str, args: List[str], cwd: Path, env: Optional[dict[str, str]] = None) -> None:
+    def start(
+        self, name: str, args: list[str], cwd: Path, env: dict[str, str] | None = None
+    ) -> None:
         creationflags = CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         if os.name == "nt" and self.separate_consoles:
             creationflags |= CREATE_NEW_CONSOLE
@@ -72,16 +73,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--backend-port", type=int, default=8000)
     parser.add_argument("--frontend-host", default="0.0.0.0")
     parser.add_argument("--frontend-port", type=int, default=5173)
-    parser.add_argument("--skip-backend", action="store_true", help="Do not start the backend service")
-    parser.add_argument("--skip-frontend", action="store_true", help="Do not start the frontend dev server")
+    parser.add_argument(
+        "--skip-backend", action="store_true", help="Do not start the backend service"
+    )
+    parser.add_argument(
+        "--skip-frontend", action="store_true", help="Do not start the frontend dev server"
+    )
     parser.add_argument("--backend-app", default="backend.api.main:app", help="Uvicorn app path")
-    parser.add_argument("--uvicorn-cmd", default=os.environ.get("UVICORN_CMD", "uvicorn"), help="Uvicorn executable")
+    parser.add_argument(
+        "--uvicorn-cmd", default=os.environ.get("UVICORN_CMD", "uvicorn"), help="Uvicorn executable"
+    )
     parser.add_argument(
         "--compose-command",
         default=os.environ.get("DOCKER_COMPOSE_CMD", "docker compose"),
         help="Command prefix to run docker compose (e.g. 'docker compose' or 'docker-compose')",
     )
-    parser.add_argument("--docker-service", default="backend", help="Docker compose service name for backend")
+    parser.add_argument(
+        "--docker-service", default="backend", help="Docker compose service name for backend"
+    )
     parser.add_argument(
         "--docker-build",
         dest="docker_build",
@@ -89,8 +98,12 @@ def parse_args() -> argparse.Namespace:
         action=argparse.BooleanOptionalAction,
         help="Add --build when starting the backend docker service",
     )
-    parser.add_argument("--npm-cmd", default=os.environ.get("NPM_CMD", "npm"), help="npm executable")
-    parser.add_argument("--frontend-script", default="dev", help="npm script to run for the frontend")
+    parser.add_argument(
+        "--npm-cmd", default=os.environ.get("NPM_CMD", "npm"), help="npm executable"
+    )
+    parser.add_argument(
+        "--frontend-script", default="dev", help="npm script to run for the frontend"
+    )
     parser.add_argument(
         "--auto-install-frontend",
         default=True,
@@ -123,7 +136,7 @@ def ensure_command_available(executable: str) -> str:
     return resolved
 
 
-def parse_compose_command(raw: str) -> List[str]:
+def parse_compose_command(raw: str) -> list[str]:
     parts = shlex.split(raw)
     if not parts:
         raise SystemExit("Compose command cannot be empty")
@@ -137,7 +150,7 @@ def ensure_frontend_dependencies(frontend_dir: Path, npm_cmd: str) -> None:
     subprocess.run([npm_cmd, "install"], cwd=str(frontend_dir), check=True)
 
 
-def extend_pythonpath(root: Path, current: Optional[str]) -> str:
+def extend_pythonpath(root: Path, current: str | None) -> str:
     if current:
         return f"{root}{os.pathsep}{current}"
     return str(root)
@@ -165,7 +178,7 @@ def main() -> None:
     manager = ProcessManager(separate_consoles=args.separate_consoles)
 
     try:
-        npm_cmd: Optional[str] = None
+        npm_cmd: str | None = None
 
         if not args.skip_backend:
             if args.backend_mode == "docker":
@@ -189,7 +202,15 @@ def main() -> None:
                     str(args.backend_port),
                 ]
                 if args.reload:
-                    backend_cmd.append("--reload")
+                    backend_cmd.extend(
+                        [
+                            "--reload",
+                            "--reload-dir",
+                            "backend",
+                            "--reload-dir",
+                            "config",
+                        ]
+                    )
                 manager.start("backend", backend_cmd, cwd=root, env=backend_env)
 
         if not args.skip_frontend:

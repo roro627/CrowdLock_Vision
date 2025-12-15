@@ -1,4 +1,30 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+function defaultApiBaseFromLocation(): string {
+  // Prefer same host as the web UI, with the backend port.
+  const hostname = window.location.hostname || 'localhost';
+  const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+  return `${protocol}//${hostname}:8000`;
+}
+
+function resolveApiBase(): string {
+  const envBase = import.meta.env.VITE_API_BASE as string | undefined;
+  if (!envBase) return defaultApiBaseFromLocation();
+
+  try {
+    const parsed = new URL(envBase);
+    const badHost = parsed.hostname === 'localhost' || parsed.hostname === '0.0.0.0';
+    const pageHost = window.location.hostname;
+    if (badHost && pageHost && pageHost !== 'localhost') {
+      parsed.hostname = pageHost;
+      return parsed.toString().replace(/\/$/, '');
+    }
+  } catch {
+    // If envBase isn't an absolute URL, fall back to it as-is.
+  }
+
+  return envBase.replace(/\/$/, '');
+}
+
+const API_BASE = resolveApiBase();
 
 export interface BackendConfig {
   video_source: 'webcam' | 'file' | 'rtsp';

@@ -17,4 +17,3 @@ def test_smoothing_applies():
     dm.update([])
     second = dm.grid[0, 0]
     assert second < first and second > 0  # decays with smoothing
-

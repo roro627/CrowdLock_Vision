@@ -1,5 +1,6 @@
-from ultralytics import YOLO
 import sys
+
+from ultralytics import YOLO
 
 try:
     print("Loading model...")

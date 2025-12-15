@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from typing import List
-
-import numpy as np
 from ultralytics import YOLO
 
 from backend.core.types import Detection
@@ -24,10 +21,10 @@ class YoloPersonDetector:
             self.model.to(device)
         self.conf = conf
 
-    def detect(self, frame) -> List[Detection]:
+    def detect(self, frame) -> list[Detection]:
         # ONNX models ignore .to(device); device selection handled by runtime
         results = self.model.predict(frame, conf=self.conf, verbose=False)
-        detections: List[Detection] = []
+        detections: list[Detection] = []
         for result in results:
             boxes = result.boxes
             kpts = result.keypoints
@@ -39,7 +36,9 @@ class YoloPersonDetector:
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
                 conf = float(box.conf[0])
                 keypoints = None
-                if kpts is not None and hasattr(kpts, 'data') and len(kpts.data) > i:
+                if kpts is not None and hasattr(kpts, "data") and len(kpts.data) > i:
                     keypoints = kpts.data[i].cpu().numpy()
-                detections.append(Detection(bbox=(x1, y1, x2, y2), confidence=conf, keypoints=keypoints))
+                detections.append(
+                    Detection(bbox=(x1, y1, x2, y2), confidence=conf, keypoints=keypoints)
+                )
         return detections

@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from typing import Tuple
-
 import numpy as np
 
-from backend.core.types import BBox, Point, Detection
+from backend.core.types import BBox, Detection, Point
 
 
 def _bbox_center(bbox: BBox) -> Point:
@@ -44,8 +42,7 @@ def compute_body_center(det: Detection) -> Point:
     return _bbox_lower_center(det.bbox)
 
 
-def compute_targets(det: Detection) -> Tuple[Point, Point]:
+def compute_targets(det: Detection) -> tuple[Point, Point]:
     head = compute_head_center(det)
     body = compute_body_center(det)
     return head, body
-

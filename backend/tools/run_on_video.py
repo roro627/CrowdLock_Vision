@@ -6,11 +6,11 @@ from pathlib import Path
 
 import cv2
 
-from backend.core.analytics.pipeline import VisionPipeline
 from backend.core.analytics.density import DensityConfig
+from backend.core.analytics.pipeline import VisionPipeline
+from backend.core.config.settings import _parse_grid
 from backend.core.detectors.yolo import YoloPersonDetector
 from backend.core.trackers.simple_tracker import SimpleTracker
-from backend.core.config.settings import _parse_grid
 
 
 class _DummyDetector:
@@ -22,7 +22,11 @@ def run(args):
     cap = cv2.VideoCapture(args.input)
     if not cap.isOpened():
         raise SystemExit(f"Cannot open video {args.input}")
-    detector = _DummyDetector() if args.mock else YoloPersonDetector(args.model, device=args.device, conf=args.conf)
+    detector = (
+        _DummyDetector()
+        if args.mock
+        else YoloPersonDetector(args.model, device=args.device, conf=args.conf)
+    )
     tracker = SimpleTracker()
     grid = _parse_grid(args.grid_size)
     pipeline = VisionPipeline(
@@ -56,7 +60,11 @@ if __name__ == "__main__":
     parser.add_argument("--conf", type=float, default=0.35)
     parser.add_argument("--grid-size", default="10x10", help="e.g. 8x8")
     parser.add_argument("--smoothing", type=float, default=0.2)
-    parser.add_argument("--inference-width", type=int, default=640, help="Resize width for inference")
+    parser.add_argument(
+        "--inference-width", type=int, default=640, help="Resize width for inference"
+    )
     parser.add_argument("--max-frames", type=int, default=0, help="Limit frames for quick tests")
-    parser.add_argument("--mock", action="store_true", help="Use dummy detector (no model download)")
+    parser.add_argument(
+        "--mock", action="store_true", help="Use dummy detector (no model download)"
+    )
     run(parser.parse_args())

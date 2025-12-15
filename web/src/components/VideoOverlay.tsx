@@ -20,7 +20,9 @@ function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: 
   ctx.clearRect(0, 0, width, height);
 
   // Use frame_size from payload if available, otherwise fallback to 1280x720
-  const [frameW, frameH] = payload.frame_size || [1280, 720];
+  const rawFrameSize = payload.frame_size || [1280, 720];
+  const frameW = rawFrameSize[0] > 0 ? rawFrameSize[0] : 1280;
+  const frameH = rawFrameSize[1] > 0 ? rawFrameSize[1] : 720;
   const scaleX = width / frameW;
   const scaleY = height / frameH;
 
@@ -79,35 +81,46 @@ export function VideoOverlay({ frame, showBoxes, showHead, showBody, showDensity
 
   // Keep canvas resolution in sync with rendered video size to avoid overlay drift.
   useEffect(() => {
-    const resize = () => {
-      const el = containerRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const w = Math.max(1, Math.round(rect.width));
-      const h = Math.max(1, Math.round(rect.height));
-      setCanvasSize({ w, h });
+    const el = containerRef.current;
+    if (!el) return;
+
+    const update = (w: number, h: number) => {
+      const nextW = Math.max(1, Math.round(w));
+      const nextH = Math.max(1, Math.round(h));
+      setCanvasSize((prev) => (prev.w === nextW && prev.h === nextH ? prev : { w: nextW, h: nextH }));
     };
-    resize();
-    window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
+
+    const rect = el.getBoundingClientRect();
+    update(rect.width, rect.height);
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const cr = entry.contentRect;
+        update(cr.width, cr.height);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (frame && canvas) {
-      canvas.width = canvasSize.w;
-      canvas.height = canvasSize.h;
-      drawOverlay(canvas, frame, {
-        frame,
-        showBoxes,
-        showHead,
-        showBody,
-        showDensity,
-        videoUrl,
-        connection,
-        backendError,
-      });
-    }
+    if (!canvas) return;
+
+    canvas.width = canvasSize.w;
+    canvas.height = canvasSize.h;
+
+    if (!frame) return;
+    drawOverlay(canvas, frame, {
+      frame,
+      showBoxes,
+      showHead,
+      showBody,
+      showDensity,
+      videoUrl,
+      connection,
+      backendError,
+    });
   }, [frame, showBoxes, showHead, showBody, showDensity, videoUrl, canvasSize, connection, backendError]);
 
   return (

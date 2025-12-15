@@ -30,7 +30,7 @@ install-frontend:
 	cd web && $(NPM) install
 
 backend:
-	PYTHONPATH=. $(UVICORN) $(BACKEND_APP) --host $(BACKEND_HOST) --port $(BACKEND_PORT) --reload
+	PYTHONPATH=. $(UVICORN) $(BACKEND_APP) --host $(BACKEND_HOST) --port $(BACKEND_PORT) --reload --reload-dir backend --reload-dir config
 
 frontend:
 	cd web && $(NPM) run dev -- --host $(FRONTEND_HOST) --port $(FRONTEND_PORT)

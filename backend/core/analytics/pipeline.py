@@ -1,30 +1,29 @@
 from __future__ import annotations
 
 import time
-from typing import List, Optional
 
 import cv2
 import numpy as np
 
 from backend.core.analytics.density import DensityConfig, DensityMap
-from backend.core.trackers.simple_tracker import SimpleTracker
 from backend.core.detectors.yolo import YoloPersonDetector
+from backend.core.trackers.simple_tracker import SimpleTracker
 from backend.core.types import Detection, FrameSummary, TrackedPerson
 
 
 class VisionPipeline:
     def __init__(
         self,
-        detector: Optional[YoloPersonDetector] = None,
-        tracker: Optional[SimpleTracker] = None,
-        density_config: DensityConfig = DensityConfig(),
-        frame_size: Optional[tuple[int, int]] = None,
+        detector: YoloPersonDetector | None = None,
+        tracker: SimpleTracker | None = None,
+        density_config: DensityConfig | None = None,
+        frame_size: tuple[int, int] | None = None,
     ):
         self.detector = detector or YoloPersonDetector()
         self.tracker = tracker or SimpleTracker()
-        self.density_config = density_config
+        self.density_config = density_config or DensityConfig()
         self.frame_size = frame_size
-        self.density_map: Optional[DensityMap] = None
+        self.density_map: DensityMap | None = None
         self.frame_id = 0
         self._last_time = time.time()
         self._fps = 0.0
@@ -34,16 +33,17 @@ class VisionPipeline:
             h, w = frame.shape[:2]
             self.density_map = DensityMap((h, w), self.density_config)
 
-    def process(self, frame: np.ndarray, inference_width: Optional[int] = None) -> tuple[FrameSummary, np.ndarray]:
+    def process(
+        self, frame: np.ndarray, inference_width: int | None = None
+    ) -> tuple[FrameSummary, np.ndarray]:
         self._ensure_density(frame)
         self.frame_id += 1
-        start = time.time()
-        
+
         # Resize for inference if needed
         h, w = frame.shape[:2]
         det_frame = frame
         scale_x, scale_y = 1.0, 1.0
-        
+
         if inference_width and inference_width < w:
             scale = inference_width / w
             new_w = inference_width
@@ -52,8 +52,8 @@ class VisionPipeline:
             scale_x = w / new_w
             scale_y = h / new_h
 
-        detections: List[Detection] = self.detector.detect(det_frame)
-        
+        detections: list[Detection] = self.detector.detect(det_frame)
+
         # Scale back detections to original coordinates
         if scale_x != 1.0 or scale_y != 1.0:
             for det in detections:
@@ -63,7 +63,7 @@ class VisionPipeline:
                     det.keypoints[:, 0] *= scale_x
                     det.keypoints[:, 1] *= scale_y
 
-        persons: List[TrackedPerson] = self.tracker.update(detections)
+        persons: list[TrackedPerson] = self.tracker.update(detections)
         if self.density_map:
             self.density_map.update([p.body_center for p in persons])
         density_summary = self.density_map.summary() if self.density_map else {}
@@ -72,7 +72,9 @@ class VisionPipeline:
         if dt > 0:
             instant_fps = 1.0 / dt
             alpha = 0.1
-            self._fps = instant_fps if self._fps == 0 else (self._fps * (1.0 - alpha) + instant_fps * alpha)
+            self._fps = (
+                instant_fps if self._fps == 0 else (self._fps * (1.0 - alpha) + instant_fps * alpha)
+            )
         self._last_time = now
         summary = FrameSummary(
             frame_id=self.frame_id,
@@ -83,4 +85,3 @@ class VisionPipeline:
             frame_size=(w, h),
         )
         return summary, frame
-

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Tuple
+
 import numpy as np
 
 from backend.core.types import Point
@@ -9,25 +9,25 @@ from backend.core.types import Point
 
 @dataclass
 class DensityConfig:
-    grid_size: Tuple[int, int] = (10, 10)
+    grid_size: tuple[int, int] = (10, 10)
     smoothing: float = 0.9  # exponential smoothing factor (retention rate)
 
 
 class DensityMap:
-    def __init__(self, frame_shape: Tuple[int, int], config: DensityConfig):
+    def __init__(self, frame_shape: tuple[int, int], config: DensityConfig):
         self.h, self.w = frame_shape
         self.config = config
         gx, gy = config.grid_size
         self.grid = np.zeros((gy, gx), dtype=float)
 
-    def _cell_index(self, point: Point) -> Tuple[int, int]:
+    def _cell_index(self, point: Point) -> tuple[int, int]:
         x, y = point
         gx, gy = self.config.grid_size
         i = int(np.clip(x / self.w * gx, 0, gx - 1))
         j = int(np.clip(y / self.h * gy, 0, gy - 1))
         return i, j
 
-    def update(self, body_points: List[Point]):
+    def update(self, body_points: list[Point]):
         gx, gy = self.config.grid_size
         current = np.zeros((gy, gx), dtype=float)
         for pt in body_points:
@@ -44,4 +44,3 @@ class DensityMap:
             "cells": self.grid.tolist(),
             "max_cell": max_cell,
         }
-

@@ -1,20 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
 
 import numpy as np
 
-
-BBox = Tuple[float, float, float, float]
-Point = Tuple[float, float]
+BBox = tuple[float, float, float, float]
+Point = tuple[float, float]
 
 
 @dataclass
 class Detection:
     bbox: BBox
     confidence: float
-    keypoints: Optional[np.ndarray] = None  # shape: (N, 3) -> x, y, confidence
+    keypoints: np.ndarray | None = None  # shape: (N, 3) -> x, y, confidence
 
 
 @dataclass
@@ -30,8 +28,7 @@ class TrackedPerson:
 class FrameSummary:
     frame_id: int
     timestamp: float
-    persons: List[TrackedPerson]
+    persons: list[TrackedPerson]
     density: dict
     fps: float
-    frame_size: Tuple[int, int] = (0, 0)
-
+    frame_size: tuple[int, int] = (0, 0)

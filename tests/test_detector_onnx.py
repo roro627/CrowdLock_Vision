@@ -1,7 +1,3 @@
-from types import SimpleNamespace
-
-import pytest
-
 import backend.core.detectors.yolo as yolo_mod
 
 
@@ -36,5 +32,5 @@ def test_pt_model_calls_to(monkeypatch):
             return self
 
     monkeypatch.setattr(yolo_mod, "YOLO", PtYOLO)
-    det = yolo_mod.YoloPersonDetector(model_name="model.pt", device="cuda")
+    yolo_mod.YoloPersonDetector(model_name="model.pt", device="cuda")
     assert called["device"] == "cuda"

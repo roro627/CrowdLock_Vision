@@ -35,7 +35,9 @@ def test_run_on_video_cli(tmp_path: Path):
         pytest.skip("OpenCV backend cannot read generated video on this platform")
 
     env = os.environ.copy()
-    env["PYTHONPATH"] = env.get("PYTHONPATH", ".") + os.pathsep + str(Path(__file__).resolve().parents[1])
+    env["PYTHONPATH"] = (
+        env.get("PYTHONPATH", ".") + os.pathsep + str(Path(__file__).resolve().parents[1])
+    )
 
     cmd = [
         sys.executable,

@@ -1,15 +1,17 @@
 import numpy as np
 
-from backend.core.analytics.targets import compute_head_center, compute_body_center
+from backend.core.analytics.targets import compute_body_center, compute_head_center
 from backend.core.types import Detection
 
 
 def test_head_center_uses_keypoints():
-    kpts = np.array([
-        [10, 10, 0.9],  # nose
-        [12, 10, 0.9],  # left eye
-        [8, 10, 0.9],   # right eye
-    ])
+    kpts = np.array(
+        [
+            [10, 10, 0.9],  # nose
+            [12, 10, 0.9],  # left eye
+            [8, 10, 0.9],  # right eye
+        ]
+    )
     det = Detection(bbox=(0, 0, 100, 100), confidence=0.9, keypoints=kpts)
     x, y = compute_head_center(det)
     assert 8 <= x <= 12
@@ -38,4 +40,3 @@ def test_body_center_fallback():
     x, y = compute_body_center(det)
     assert x == 50
     assert y == 65
-

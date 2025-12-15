@@ -3,6 +3,7 @@
 Real-time multi-person detection, tracking, and analytics with head/body lock-on targets and a React dashboard.
 
 ## Project Layout
+
 ```
 backend/    FastAPI service + vision pipeline (YOLOv8 pose + tracker + analytics)
 web/        React + Vite + Tailwind dashboard
@@ -14,14 +15,25 @@ testdata/   Sample videos for validation
 ## Quickstart (local)
 1. Create and activate a Python env (example: `python3 -m venv .venv && source .venv/bin/activate`).
 2. Install backend deps (CPU torch):
+
    ```bash
    PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu pip install -r backend/requirements.txt
    ```
+
 3. Start API (auto-loads config/backend.config.yml if present):
+
    ```bash
    export PYTHONPATH=.
-   uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
+   uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir backend --reload-dir config
    ```
+
+   PowerShell equivalent:
+
+   ```powershell
+   $env:PYTHONPATH = "."
+   uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir backend --reload-dir config
+   ```
+
 4. Frontend: `cd web && npm install && npm run dev -- --host` then open http://localhost:5173.
    - Dashboard shows live overlays and lets you change source (webcam/file/rtsp), model name, and confidence via the **Video Input** card.
 
@@ -47,6 +59,7 @@ testdata/   Sample videos for validation
 
 ## CLI
 Process a video and dump JSON:
+
 ```bash
 python -m backend.tools.run_on_video --input testdata/videos/855564-hd_1920_1080_24fps.mp4 --output tmp/out.json --max-frames 200
 ```

@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 from ultralytics import YOLO
 
-
 MODEL_PATH = Path("yolov8n.onnx")
 
 
