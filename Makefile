@@ -9,7 +9,7 @@ FRONTEND_PORT ?= 5173
 BACKEND_MODE ?= docker
 COMPOSE_CMD ?= docker compose
 
-.PHONY: help setup install-backend install-frontend backend frontend dev dev-local
+.PHONY: help setup install-backend install-frontend backend frontend dev dev-local doctor
 
 help:
 	@echo "Available targets:"
@@ -20,6 +20,7 @@ help:
 	@echo "  frontend          Start the Vite dev server"
 	@echo "  dev               Start backend (docker by default) + frontend via start_stack.py"
 	@echo "  dev-local         Run dev target with BACKEND_MODE=local"
+	@echo "  doctor            Check environment + project sanity"
 
 setup: install-backend install-frontend
 
@@ -40,3 +41,6 @@ dev:
 
 dev-local:
 	$(MAKE) dev BACKEND_MODE=local
+
+doctor:
+	$(PYTHON) scripts/dev/doctor.py

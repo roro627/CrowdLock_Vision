@@ -1,18 +1,76 @@
-# CrowdLock Vision
+<div align="center">
 
-Real-time multi-person detection, tracking, and analytics with head/body lock-on targets and a React dashboard.
+# 🎯 CrowdLock Vision
 
-## Project Layout
+**Real-time multi-person detection, tracking & analytics**  
+*CPU-optimized vision pipeline with frame-perfect overlay synchronization*
 
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-teal.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://react.dev/)
+
+[Features](#-features) • [Quick Start](#-quick-start) • [API](#-api-reference) • [Troubleshooting](#-troubleshooting)
+
+</div>
+
+---
+
+## ✨ Features
+
+- 🎥 **Multi-source support**: Webcam, video files, or RTSP streams
+- 🧠 **YOLOv8 pose estimation**: CPU-optimized inference with configurable stride
+- 🎯 **Stable tracking**: Persistent IDs across frames with head/body center points
+- 📊 **Density heatmaps**: Grid-based crowd analytics with smoothing
+- ⚡ **Low-latency streaming**: MJPEG + WebSocket with frame-ID synchronization
+- 🎨 **Live overlays**: React dashboard with perfectly aligned bounding boxes & metrics
+- 🔧 **Runtime reconfiguration**: Change models, sources, and presets without restart
+- 🐳 **Docker ready**: One-command deployment with docker-compose
+
+---
+
+## 🚀 Quick Start
+
+### The fastest way to get started
+
+```bash
+# 1. Check your environment
+make doctor
+
+# 2. Launch backend + frontend (uses Docker by default)
+make dev
 ```
-backend/    FastAPI service + vision pipeline (YOLOv8 pose + tracker + analytics)
-web/        React + Vite + Tailwind dashboard
-scripts/    Dev helpers
-config/     Example env and YAML config
-testdata/   Sample videos for validation
+
+**Then open:**
+
+- 🌐 **Web UI**: <http://localhost:5173>
+- 💚 **Backend health**: <http://localhost:8000/health>
+
+> **💡 Tip**: No webcam? See [Demo Mode](#demo-mode-no-webcam-needed) below.
+
+---
+
+## 📂 Project Structure
+
+```.
+📁 CrowdLock_Vision/
+├── 🐍 backend/         # FastAPI + vision pipeline (YOLOv8 pose)
+│   ├── api/           # REST routes & WebSocket endpoints
+│   ├── core/          # Detectors, trackers, analytics, video sources
+│   └── tools/         # CLI utilities (bench, run-on-video)
+├── ⚛️  web/            # React + TypeScript dashboard
+│   ├── src/           # Components, hooks, overlays
+│   └── public/        # Static assets
+├── 🔧 config/          # YAML configs & env examples
+├── 🐳 docker-compose.yml
+├── 📊 testdata/videos/ # Sample clips for testing
+└── 🛠️  scripts/        # Dev helpers (doctor, start_stack)
 ```
 
-## Quickstart (local)
+---
+
+## 🔧 Manual Setup (Advanced)
 
 1. Create and activate a Python env (example: `python3 -m venv .venv && source .venv/bin/activate`).
 2. Install backend deps (CPU torch):
@@ -38,67 +96,181 @@ testdata/   Sample videos for validation
 4. Frontend: `cd web && npm install && npm run dev -- --host` then open <http://localhost:5173>.
    - Dashboard shows live overlays and lets you change source (webcam/file/rtsp), model name, and confidence via the **Video Input** card.
 
-### One-liner dev stack
+### Development Stack Options
 
-- `python scripts/dev/start_stack.py` launches backend + frontend with graceful shutdown (backend uses Docker by default).
-- `make dev` does the same via the new Makefile; call `make help` to see all targets.
-- Add `--backend-mode local` (or `BACKEND_MODE=local make dev`) to run the backend directly with uvicorn instead of Docker.
+| Command | Backend | Use Case |
+|---------|---------|----------|
+| `make dev` | Docker | **Recommended** – isolated, reproducible |
+| `make dev-local` | Local uvicorn | Fast iteration, debugging |
+| `python scripts/dev/start_stack.py` | Configurable | Custom flags |
 
-## Config
+**See all targets**: `make help`
 
-- Copy `config/backend.config.example.yml` to `config/backend.config.yml` and adjust:
-  - `video_source`: `webcam|file|rtsp`
-  - `video_path` / `rtsp_url`
-  - `model_name`, `model_task` (`auto|detect|pose`), `confidence`, `grid_size`, `smoothing`
-  - `inference_width`, `jpeg_quality`, `enable_backend_overlays`
-- Env vars override (prefix `CLV_`, see `config/app.example.env`).
+### Demo Mode (No Webcam Needed)
 
-## API
+**Perfect for first-time users or CI/testing:**
 
-- `GET /health` – service ok
-- `GET /config`, `POST /config` – view/update runtime config
-- `GET /stats` – aggregate stats
-- `GET /stream/video` – MJPEG stream with overlays
-- `WS /stream/metadata` – per-frame JSON (persons, targets, density, fps)
+1. Edit `config/backend.config.yml`:
 
-## CLI
+   ```yaml
+   video_source: file
+   video_path: testdata/videos/855564-hd_1920_1080_24fps.mp4
+   ```
 
-Process a video and dump JSON:
+2. Run `make dev`
+3. Open <http://localhost:5173> and watch the pipeline process a pre-recorded crowd scene
+
+> This validates the full stack (detection → tracking → analytics → streaming → overlays) without hardware dependencies.
+
+---
+
+---
+
+## ⚙️ Configuration
+
+### Config File (Recommended)
+
+1. Copy the example: `cp config/backend.config.example.yml config/backend.config.yml`
+2. Adjust key settings:
+
+| Setting | Options | Description |
+|---------|---------|-------------|
+| `video_source` | `webcam`, `file`, `rtsp` | Input source type |
+| `model_name` | `yolov8n.pt`, `yolov8n-pose.pt` | YOLO model variant |
+| `confidence` | `0.0` – `1.0` | Detection threshold |
+| `grid_size` | `10x10`, `16x16`, etc. | Density heatmap resolution |
+| `inference_width` | `640`, `320`, etc. | Detector input size (↓ = faster) |
+| `jpeg_quality` | `10` – `100` | Stream quality vs bandwidth |
+
+### Environment Variables (Override)
+
+Prefix any config key with `CLV_` (see `config/app.example.env`):
 
 ```bash
-python -m backend.tools.run_on_video --input testdata/videos/855564-hd_1920_1080_24fps.mp4 --output tmp/out.json --max-frames 200
+export CLV_VIDEO_SOURCE=webcam
+export CLV_CONFIDENCE=0.4
 ```
 
-## Benchmark (FPS / Latency)
+---
 
-Benchmark the pipeline on real videos to identify bottlenecks (decode vs detect vs overlay vs JPEG encode):
+## 📡 API Reference
+
+### REST Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Service health check |
+| `/config` | GET / POST | View or update runtime configuration |
+| `/stats` | GET | Aggregate analytics (people count, FPS, density) |
+| `/stream/video` | GET | MJPEG stream with `X-Frame-Id` headers |
+
+### WebSocket
+
+| Endpoint | Protocol | Payload |
+|----------|----------|---------|
+| `/stream/metadata` | WS | Per-frame JSON: `{frame_id, timestamp, persons[], density{}, fps, stream_fps}` |
+
+**Interactive docs**: <http://localhost:8000/docs> (Swagger UI)
+
+---
+
+## 🖥️ CLI Tools
+
+### Process Video to JSON
 
 ```bash
-# Run with presets (CPU-oriented)
-python -m backend.tools.bench_video --input testdata/videos --preset equilibre --preset fps_max --preset qualite
-
-# Quick iteration
-python -m backend.tools.bench_video --input testdata/videos --max-frames 150 --warmup-frames 20
+python -m backend.tools.run_on_video \
+  --input testdata/videos/855564-hd_1920_1080_24fps.mp4 \
+  --output results.json \
+  --max-frames 200
 ```
 
-Writes `benchmark_video_results.json` with per-stage latency percentiles.
+**Output**: Frame-by-frame analytics (persons, bboxes, density) in JSON format.
 
-## Tests
+### Benchmark Pipeline Performance
 
-- Backend unit tests: `pytest` (uses lightweight analytics logic; no heavy model needed).
+**Identify bottlenecks** across decode → detect → overlay → encode stages:
 
-## Docker
+```bash
+# Test multiple presets
+python -m backend.tools.bench_video \
+  --input testdata/videos \
+  --preset equilibre --preset fps_max --preset qualite
 
-- Build images: `docker compose build`
-- Run stack: `docker compose up`
-- CPU-only: this project is configured to run on CPU only.
+# Quick profiling
+python -m backend.tools.bench_video \
+  --input testdata/videos \
+  --max-frames 150 --warmup-frames 20
+```
 
-### CPU-only note (Ultralytics / ONNX)
+**Output**: `benchmark_video_results.json` with per-stage latency percentiles (p50, p95, p99).
 
-Some Ultralytics export flows try to auto-install accelerator runtimes (e.g. `onnxruntime-gpu`).
-This repo disables that behavior by setting `ULTRALYTICS_AUTOUPDATE=0` (see the Dockerfile and
-the ONNX export helpers).
+---
 
-## Assets & modèles
+## 🧪 Testing
 
-- Les poids YOLO ne sont plus versionnés. Ultralytics télécharge automatiquement les modèles manquants au premier lancement.
+```bash
+# Backend (no GPU required)
+pytest -q
+
+# Frontend
+cd web && npm test
+```
+
+**Coverage**: Backend tests use lightweight mocks—no heavy YOLO inference needed.
+
+---
+
+## 🩺 Troubleshooting
+
+| Symptom | Solution |
+|---------|----------|
+| 🖥️ **Web UI is black** | Ensure backend is running: <http://localhost:8000/health> |
+| 📷 **Webcam not detected** | Switch to [Demo Mode](#demo-mode-no-webcam-needed) to validate pipeline |
+| 🚪 **Port already in use** | Change ports in `Makefile` or stop conflicting process |
+| 🐳 **Docker build fails** | Ensure Docker daemon is running: `docker info` |
+| ⚠️ **Missing dependencies** | Run `make doctor` to check environment |
+
+**Still stuck?** Run `make doctor` for a full environment audit.
+
+---
+
+## 🐳 Docker Deployment
+
+```bash
+# Build images
+docker compose build
+
+# Run stack (backend + web)
+docker compose up
+```
+
+**Note**: This project is CPU-optimized by default. GPU acceleration requires custom `requirements.txt` changes.
+
+### CPU-Only Design
+
+Ultralytics auto-downloads models on first run. We disable GPU runtime auto-install via `ULTRALYTICS_AUTOUPDATE=0` to keep CPU torch wheels.
+
+---
+
+## 📦 Models & Assets
+
+- **YOLO weights**: Auto-downloaded by Ultralytics on first inference (not versioned in repo)
+- **Supported models**: `yolov8n.pt`, `yolov8n-pose.pt`, `yolov8s-pose.pt`, etc.
+- **Storage**: Models cached in `~/.cache/ultralytics/` (or `TORCH_HOME`)
+
+---
+
+## 📄 License
+
+MIT License – see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Built with ❤️ for real-time vision applications**
+
+[⬆ Back to Top](#-crowdlock-vision)
+
+</div>
