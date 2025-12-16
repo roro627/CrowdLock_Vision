@@ -135,7 +135,7 @@ export function VideoOverlay({ frame, showBoxes, showHead, showBody, showDensity
         <span>•</span>
         <span>
           {frame
-            ? `${frame.fps.toFixed(1)} infer${typeof frame.stream_fps === 'number' ? ` / ${frame.stream_fps.toFixed(1)} stream` : ''} fps / ${frame.persons.length} people`
+            ? `${frame.fps.toFixed(1)} infer${typeof frame.stream_fps === 'number' ? ` / ${frame.stream_fps.toFixed(1)} stream` : ''} fps / ${frame.persons.length} people / ${Math.max(0, (Date.now() / 1000 - frame.timestamp) * 1000).toFixed(0)} ms`
             : 'Buffering…'}
         </span>
         {backendError && <span className="text-red-400">({backendError})</span>}
