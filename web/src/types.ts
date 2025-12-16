@@ -21,11 +21,13 @@ export interface FramePayload {
   density: Density;
   fps: number;
   frame_size: [number, number];
+  stream_fps?: number;
 }
 
 export interface StatsPayload {
   total_persons: number;
   fps: number;
+  stream_fps?: number;
   densest_cell?: [number, number];
   error?: string | null;
 }

@@ -31,13 +31,26 @@ export interface BackendConfig {
   video_path?: string | null;
   rtsp_url?: string | null;
   model_name: string;
-  device?: string | null;
+  model_task?: 'detect' | 'pose' | 'auto' | null;
   confidence: number;
   grid_size: string;
   smoothing: number;
   inference_width?: number | null;
+  inference_stride?: number;
+  target_fps?: number | null;
+  output_width?: number | null;
   jpeg_quality?: number | null;
   enable_backend_overlays?: boolean;
+}
+
+export interface PresetInfo {
+  id: string;
+  label: string;
+  settings: Record<string, unknown>;
+}
+
+export interface PresetListResponse {
+  presets: PresetInfo[];
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -57,5 +70,9 @@ export const api = {
   updateConfig: (cfg: BackendConfig) => request<BackendConfig>('/config', {
     method: 'POST',
     body: JSON.stringify(cfg)
+  }),
+  getPresets: () => request<PresetListResponse>('/config/presets'),
+  applyPreset: (presetId: string) => request<BackendConfig>(`/config/presets/${presetId}`, {
+    method: 'POST'
   })
 };

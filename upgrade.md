@@ -13,7 +13,7 @@
 - UX header/fps : horloge actualisée, compteur FPS/people rafraîchi grâce au flux WS résilient.
 - Tests ajoutés : couverture pour settings (reload + validation), ONNX detector (pas de `.to`), endpoints FastAPI (`/health`, `/stats`), échec source vidéo, validation `/config`, exécution CLI `run_on_video` sur vidéo factice.
 - Observabilité UI : affichage erreurs backend dans la sidebar et bandeau vidéo, état buffering explicite.
-- Docker optimisé : multi-stage builder/runtime, dépendances minimalistes, utilisateur non-root, GPU optionnel via `device_requests`, restart policy et shm dans compose.
+- Docker optimisé : multi-stage builder/runtime, dépendances minimalistes, utilisateur non-root, restart policy et shm dans compose (CPU-only).
 
 ## À faire
 

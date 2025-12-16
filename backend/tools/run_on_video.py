@@ -25,7 +25,7 @@ def run(args):
     detector = (
         _DummyDetector()
         if args.mock
-        else YoloPersonDetector(args.model, device=args.device, conf=args.conf)
+        else YoloPersonDetector(args.model, conf=args.conf)
     )
     tracker = SimpleTracker()
     grid = _parse_grid(args.grid_size)
@@ -56,7 +56,6 @@ if __name__ == "__main__":
     parser.add_argument("--input", required=True, help="Path to video file")
     parser.add_argument("--output", required=True, help="Where to save JSON output")
     parser.add_argument("--model", default="yolov8n-pose.pt")
-    parser.add_argument("--device", default=None)
     parser.add_argument("--conf", type=float, default=0.35)
     parser.add_argument("--grid-size", default="10x10", help="e.g. 8x8")
     parser.add_argument("--smoothing", type=float, default=0.2)

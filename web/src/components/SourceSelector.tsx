@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { api, BackendConfig } from '../api/client';
+import { api, BackendConfig, PresetInfo } from '../api/client';
 
 interface Props {
   onStatus: (status: 'idle' | 'saving' | 'error' | 'saved') => void;
@@ -10,7 +10,6 @@ const defaultCfg: BackendConfig = {
   video_path: '',
   rtsp_url: '',
   model_name: 'yolov8n-pose.pt',
-  device: null,
   confidence: 0.35,
   grid_size: '10x10',
   smoothing: 0.2,
@@ -21,6 +20,8 @@ const defaultCfg: BackendConfig = {
 
 export function SourceSelector({ onStatus }: Props) {
   const [cfg, setCfg] = useState<BackendConfig>(defaultCfg);
+  const [presets, setPresets] = useState<PresetInfo[]>([]);
+  const [presetId, setPresetId] = useState<string>('equilibre');
 
   useEffect(() => {
     api
@@ -28,6 +29,16 @@ export function SourceSelector({ onStatus }: Props) {
       .then((data) => setCfg(data))
       .catch(() => onStatus('error'));
   }, [onStatus]);
+
+  useEffect(() => {
+    api
+      .getPresets()
+      .then((data) => setPresets(data.presets || []))
+      .catch(() => {
+        // Presets are optional; keep UI usable even if endpoint is unavailable.
+        setPresets([]);
+      });
+  }, []);
 
   const handleChange = (key: keyof BackendConfig, value: string | number | boolean | null) => {
     setCfg((c) => ({ ...c, [key]: value } as BackendConfig));
@@ -45,6 +56,27 @@ export function SourceSelector({ onStatus }: Props) {
     }
   };
 
+  const applyPresetLocally = (id: string) => {
+    const preset = presets.find((p) => p.id === id);
+    if (!preset) return;
+    const s = preset.settings || {};
+    const iw = s['inference_width'];
+    const is = s['inference_stride'];
+    const ow = s['output_width'];
+    const jq = s['jpeg_quality'];
+    const tf = s['target_fps'];
+    const ebo = s['enable_backend_overlays'];
+    setCfg((c) => ({
+      ...c,
+      ...(typeof iw === 'number' ? { inference_width: iw } : {}),
+      ...(typeof is === 'number' ? { inference_stride: is } : {}),
+      ...(typeof ow === 'number' || ow === null ? { output_width: ow as number | null } : {}),
+      ...(typeof jq === 'number' ? { jpeg_quality: jq } : {}),
+      ...(typeof tf === 'number' || tf === null ? { target_fps: tf as number | null } : {}),
+      ...(typeof ebo === 'boolean' ? { enable_backend_overlays: ebo } : {})
+    } as BackendConfig));
+  };
+
   return (
     <form className="card p-4 space-y-3" onSubmit={handleSubmit}>
       <div className="flex items-center justify-between">
@@ -54,6 +86,30 @@ export function SourceSelector({ onStatus }: Props) {
         </div>
         <button type="submit" className="button-primary">Apply</button>
       </div>
+
+      {presets.length > 0 && (
+        <div className="grid grid-cols-1 gap-3">
+          <label className="flex items-center gap-2">
+            <span className="w-28 text-sm text-slate-300">Preset</span>
+            <select
+              className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
+              value={presetId}
+              onChange={(e) => {
+                const next = e.target.value;
+                setPresetId(next);
+                applyPresetLocally(next);
+              }}
+            >
+              {presets.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-3">
         <label className="flex items-center gap-2">
           <span className="w-28 text-sm text-slate-300">Type</span>
@@ -95,15 +151,6 @@ export function SourceSelector({ onStatus }: Props) {
             className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
             value={cfg.model_name}
             onChange={(e) => handleChange('model_name', e.target.value)}
-          />
-        </label>
-        <label className="flex items-center gap-2">
-          <span className="w-28 text-sm text-slate-300">Device</span>
-          <input
-            className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
-            value={cfg.device || ''}
-            onChange={(e) => handleChange('device', e.target.value || null)}
-            placeholder="cpu | cuda:0"
           />
         </label>
         <label className="flex items-center gap-2">

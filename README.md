@@ -13,6 +13,7 @@ testdata/   Sample videos for validation
 ```
 
 ## Quickstart (local)
+
 1. Create and activate a Python env (example: `python3 -m venv .venv && source .venv/bin/activate`).
 2. Install backend deps (CPU torch):
 
@@ -34,23 +35,26 @@ testdata/   Sample videos for validation
    uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir backend --reload-dir config
    ```
 
-4. Frontend: `cd web && npm install && npm run dev -- --host` then open http://localhost:5173.
+4. Frontend: `cd web && npm install && npm run dev -- --host` then open <http://localhost:5173>.
    - Dashboard shows live overlays and lets you change source (webcam/file/rtsp), model name, and confidence via the **Video Input** card.
 
 ### One-liner dev stack
+
 - `python scripts/dev/start_stack.py` launches backend + frontend with graceful shutdown (backend uses Docker by default).
 - `make dev` does the same via the new Makefile; call `make help` to see all targets.
 - Add `--backend-mode local` (or `BACKEND_MODE=local make dev`) to run the backend directly with uvicorn instead of Docker.
 
 ## Config
+
 - Copy `config/backend.config.example.yml` to `config/backend.config.yml` and adjust:
   - `video_source`: `webcam|file|rtsp`
   - `video_path` / `rtsp_url`
-  - `model_name`, `confidence`, `grid_size`, `smoothing`
+  - `model_name`, `model_task` (`auto|detect|pose`), `confidence`, `grid_size`, `smoothing`
   - `inference_width`, `jpeg_quality`, `enable_backend_overlays`
 - Env vars override (prefix `CLV_`, see `config/app.example.env`).
 
 ## API
+
 - `GET /health` – service ok
 - `GET /config`, `POST /config` – view/update runtime config
 - `GET /stats` – aggregate stats
@@ -58,20 +62,43 @@ testdata/   Sample videos for validation
 - `WS /stream/metadata` – per-frame JSON (persons, targets, density, fps)
 
 ## CLI
+
 Process a video and dump JSON:
 
 ```bash
 python -m backend.tools.run_on_video --input testdata/videos/855564-hd_1920_1080_24fps.mp4 --output tmp/out.json --max-frames 200
 ```
 
+## Benchmark (FPS / Latency)
+
+Benchmark the pipeline on real videos to identify bottlenecks (decode vs detect vs overlay vs JPEG encode):
+
+```bash
+# Run with presets (CPU-oriented)
+python -m backend.tools.bench_video --input testdata/videos --preset equilibre --preset fps_max --preset qualite
+
+# Quick iteration
+python -m backend.tools.bench_video --input testdata/videos --max-frames 150 --warmup-frames 20
+```
+
+Writes `benchmark_video_results.json` with per-stage latency percentiles.
+
 ## Tests
+
 - Backend unit tests: `pytest` (uses lightweight analytics logic; no heavy model needed).
 
 ## Docker
+
 - Build images: `docker compose build`
 - Run stack: `docker compose up`
-- GPU: docker compose includes a GPU reservation; ensure the NVIDIA runtime is available or remove `device_requests` if CPU-only.
-- Build args: set `TORCH_INDEX` to use GPU wheels (e.g., `--build-arg TORCH_INDEX=https://download.pytorch.org/whl/cu124`).
+- CPU-only: this project is configured to run on CPU only.
+
+### CPU-only note (Ultralytics / ONNX)
+
+Some Ultralytics export flows try to auto-install accelerator runtimes (e.g. `onnxruntime-gpu`).
+This repo disables that behavior by setting `ULTRALYTICS_AUTOUPDATE=0` (see the Dockerfile and
+the ONNX export helpers).
 
 ## Assets & modèles
+
 - Les poids YOLO ne sont plus versionnés. Ultralytics télécharge automatiquement les modèles manquants au premier lancement.

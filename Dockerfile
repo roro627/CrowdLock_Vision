@@ -1,11 +1,11 @@
 FROM python:3.11-slim AS builder
 
-ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_EXTRA_INDEX_URL=${TORCH_INDEX}
+    PIP_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu \
+    ULTRALYTICS_AUTOUPDATE=0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg libgl1 libglib2.0-0 build-essential curl && rm -rf /var/lib/apt/lists/*
@@ -18,7 +18,8 @@ FROM python:3.11-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    ULTRALYTICS_AUTOUPDATE=0
 
 # minimal runtime deps
 RUN apt-get update && apt-get install -y --no-install-recommends \

@@ -17,10 +17,8 @@ def iou(boxA: BBox, boxB: BBox) -> float:
     interW = max(0, xB - xA)
     interH = max(0, yB - yA)
     interArea = interW * interH
-    if interArea == 0:
-        return 0.0
-    boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
-    boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
+    boxAArea = max(0.0, (boxA[2] - boxA[0])) * max(0.0, (boxA[3] - boxA[1]))
+    boxBArea = max(0.0, (boxB[2] - boxB[0])) * max(0.0, (boxB[3] - boxB[1]))
     union = boxAArea + boxBArea - interArea
     if union <= 0:
         return 0.0
@@ -45,6 +43,49 @@ class SimpleTracker:
         self._id_iter = itertools.count(1)
 
     def update(self, detections: list[Detection]) -> list[TrackedPerson]:
+        # Fast paths to avoid building matrices when possible.
+        if not self.tracks:
+            for det in detections:
+                new_id = next(self._id_iter)
+                head, body = compute_targets(det)
+                self.tracks[new_id] = Track(
+                    id=new_id,
+                    bbox=det.bbox,
+                    head_center=head,
+                    body_center=body,
+                    confidence=det.confidence,
+                    missed=0,
+                )
+            return [
+                TrackedPerson(
+                    id=track.id,
+                    bbox=track.bbox,
+                    head_center=track.head_center,
+                    body_center=track.body_center,
+                    confidence=track.confidence,
+                )
+                for track in self.tracks.values()
+            ]
+
+        if not detections:
+            to_delete = []
+            for tid, track in self.tracks.items():
+                track.missed += 1
+                if track.missed > self.max_missed:
+                    to_delete.append(tid)
+            for tid in to_delete:
+                del self.tracks[tid]
+            return [
+                TrackedPerson(
+                    id=track.id,
+                    bbox=track.bbox,
+                    head_center=track.head_center,
+                    body_center=track.body_center,
+                    confidence=track.confidence,
+                )
+                for track in self.tracks.values()
+            ]
+
         assigned_tracks = set()
         assigned_dets = set()
 

@@ -12,11 +12,6 @@ services:
       - ./config/backend.config.yml:/app/config/backend.config.yml:ro
       - ./testdata/videos:/app/testdata/videos:ro
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
     shm_size: '1g'
   web:
     build:

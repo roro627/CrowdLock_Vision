@@ -18,7 +18,7 @@ class FakeYOLO:
 
 def test_onnx_model_does_not_call_to(monkeypatch):
     monkeypatch.setattr(yolo_mod, "YOLO", FakeYOLO)
-    det = yolo_mod.YoloPersonDetector(model_name="dummy.onnx", device="cpu")
+    det = yolo_mod.YoloPersonDetector(model_name="dummy.onnx")
     assert det.is_onnx is True
     assert isinstance(det.model, FakeYOLO)
 
@@ -32,5 +32,5 @@ def test_pt_model_calls_to(monkeypatch):
             return self
 
     monkeypatch.setattr(yolo_mod, "YOLO", PtYOLO)
-    yolo_mod.YoloPersonDetector(model_name="model.pt", device="cuda")
-    assert called["device"] == "cuda"
+    yolo_mod.YoloPersonDetector(model_name="model.pt")
+    assert called["device"] == "cpu"

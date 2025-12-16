@@ -5,7 +5,6 @@ import time
 
 import cv2
 import numpy as np
-import torch
 from ultralytics import YOLO
 
 from backend.core.analytics.pipeline import VisionPipeline
@@ -23,14 +22,13 @@ def generate_synthetic_frame(width: int, height: int, num_people: int = 5) -> np
 
 
 def run_benchmark(
-    device: str,
     duration_sec: int = 10,
     resolution: tuple[int, int] = (1920, 1080),
     inference_width: int = 640,
     optimize: bool = False,
 ):
     print(f"\n{'='*50}")
-    print(f"Running Benchmark on DEVICE: {device.upper()}")
+    print("Running Benchmark (CPU-only)")
     print(f"{'='*50}")
     print(f"Resolution: {resolution}")
     print(f"Inference Width: {inference_width}")
@@ -38,7 +36,11 @@ def run_benchmark(
     print(f"Optimize: {optimize}")
 
     model_name = "yolov8n.pt"
-    if optimize and device == "cpu":
+    if optimize:
+        # Keep the project CPU-only: prevent Ultralytics from auto-installing GPU runtimes
+        # (e.g. onnxruntime-gpu) during export.
+        os.environ.setdefault("ULTRALYTICS_AUTOUPDATE", "0")
+
         onnx_path = "yolov8n.onnx"
         if os.path.exists(onnx_path):
             print(f"Found existing optimized model: {onnx_path}")
@@ -46,6 +48,7 @@ def run_benchmark(
         else:
             print("Exporting model to ONNX for CPU optimization...")
             model = YOLO(model_name)
+            # Explicit CPU export.
             model.export(format="onnx", device="cpu")
             model_name = onnx_path
             print(f"Model exported to {model_name}")
@@ -55,14 +58,13 @@ def run_benchmark(
         # ONNX models should not receive .to(device)
         detector = YoloPersonDetector(
             model_name=model_name,
-            device=None if model_name.endswith(".onnx") else device,
             task="detect",
         )
         pipeline = VisionPipeline(detector=detector)
     except Exception as e:
         import traceback
 
-        print(f"Error initializing pipeline on {device}: {e}")
+        print(f"Error initializing pipeline: {e}")
         with open("benchmark_error.txt", "w") as f:
             f.write(traceback.format_exc())
         return
@@ -95,7 +97,7 @@ def run_benchmark(
     avg_fps = frame_count / total_time
 
     latencies = np.array(latencies)
-    print(f"\nResults for {device.upper()} (Optimize={optimize}):")
+    print(f"\nResults (Optimize={optimize}):")
     print(f"Total Frames: {frame_count}")
     print(f"Total Time: {total_time:.2f}s")
     print(f"Average FPS: {avg_fps:.2f}")
@@ -107,7 +109,6 @@ def run_benchmark(
     print(f"  P99: {np.percentile(latencies, 99):.2f}")
 
     results = {
-        "device": device,
         "optimize": optimize,
         "resolution": list(resolution),
         "inference_width": inference_width,
@@ -123,7 +124,7 @@ def run_benchmark(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark CrowdLock Vision Pipeline")
     parser.add_argument(
-        "--duration", type=int, default=10, help="Benchmark duration in seconds per device"
+        "--duration", type=int, default=10, help="Benchmark duration in seconds"
     )
     parser.add_argument("--width", type=int, default=1920, help="Frame width")
     parser.add_argument("--height", type=int, default=1080, help="Frame height")
@@ -131,42 +132,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--optimize", action="store_true", help="Enable model optimization (ONNX for CPU)"
     )
-    parser.add_argument(
-        "--device", type=str, default="all", help="Device to run on (cpu, cuda, or all)"
-    )
 
     args = parser.parse_args()
 
-    devices = []
-    if args.device == "all":
-        devices.append("cpu")
-        if torch.cuda.is_available():
-            devices.append("cuda")
-        else:
-            print("\nCUDA not available. Skipping GPU benchmark.")
-    elif args.device == "cuda":
-        if torch.cuda.is_available():
-            devices.append("cuda")
-        else:
-            print("\nCUDA not available.")
-    else:
-        devices.append(args.device)
-
-    all_results = []
-    for device in devices:
-        # Only optimize CPU for now
-        do_optimize = args.optimize and device == "cpu"
-        res = run_benchmark(
-            device=device,
-            duration_sec=args.duration,
-            resolution=(args.width, args.height),
-            inference_width=args.inference_width,
-            optimize=do_optimize,
-        )
-        if res:
-            all_results.append(res)
-
-    if all_results:
+    res = run_benchmark(
+        duration_sec=args.duration,
+        resolution=(args.width, args.height),
+        inference_width=args.inference_width,
+        optimize=args.optimize,
+    )
+    if res:
         with open("benchmark_results.json", "w") as f:
-            json.dump(all_results, f, indent=4)
+            json.dump([res], f, indent=4)
         print("Saved results to benchmark_results.json")

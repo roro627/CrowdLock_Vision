@@ -13,6 +13,10 @@ DENSITY_MAX_COLOR = (255, 0, 0)
 
 
 def draw_overlays(frame: np.ndarray, summary: FrameSummary) -> np.ndarray:
+    # Fast path: avoid copying large frames when there's nothing to draw.
+    if not summary.persons and not summary.density:
+        return frame
+
     img = frame.copy()
     for person in summary.persons:
         x1, y1, x2, y2 = map(int, person.bbox)
@@ -34,7 +38,8 @@ def draw_overlays(frame: np.ndarray, summary: FrameSummary) -> np.ndarray:
     # density heatmap overlay
     density = summary.density
     if density:
-        grid = np.array(density.get("cells", []))
+        # Use asarray to avoid an unnecessary copy when possible.
+        grid = np.asarray(density.get("cells", []))
         if grid.size > 0:
             gx, gy = density.get("grid_size", [grid.shape[1], grid.shape[0]])
             h, w = img.shape[:2]
@@ -47,11 +52,14 @@ def draw_overlays(frame: np.ndarray, summary: FrameSummary) -> np.ndarray:
                     if val <= 0:
                         continue
                     alpha = min(0.6, 0.1 + val / max_val * 0.5)
-                    overlay = img.copy()
                     x1, y1 = int(i * cell_w), int(j * cell_h)
                     x2, y2 = int((i + 1) * cell_w), int((j + 1) * cell_h)
-                    cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 255), -1)
-                    cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
+                    # Blend only the ROI to avoid expensive full-frame copies.
+                    roi = img[y1:y2, x1:x2]
+                    if roi.size == 0:
+                        continue
+                    red = np.full_like(roi, (0, 0, 255))
+                    cv2.addWeighted(red, float(alpha), roi, float(1.0 - alpha), 0, roi)
             if max_cell:
                 i, j = max_cell
                 x1, y1 = int(i * cell_w), int(j * cell_h)

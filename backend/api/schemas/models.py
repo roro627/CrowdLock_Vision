@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
+
+try:  # Pydantic v2
+    from pydantic import field_validator as _field_validator
+except Exception:  # pragma: no cover - Pydantic v1
+    from pydantic import validator as _field_validator  # type: ignore
 
 
 class PersonSchema(BaseModel):
@@ -24,11 +29,13 @@ class FrameSchema(BaseModel):
     density: DensitySchema | dict
     fps: float
     frame_size: tuple[int, int] | list[int]
+    stream_fps: float | None = None
 
 
 class StatsSchema(BaseModel):
     total_persons: int
     fps: float
+    stream_fps: float | None = None
     densest_cell: list[int] | None
     error: str | None = None
 
@@ -38,21 +45,24 @@ class ConfigSchema(BaseModel):
     video_path: str | None = None
     rtsp_url: str | None = None
     model_name: str
-    device: str | None = None
+    model_task: str | None = None
     confidence: float = Field(gt=0.0, le=1.0)
     grid_size: str
     smoothing: float = Field(ge=0.0, le=1.0)
     inference_width: int | None = Field(default=640, gt=0)
+    inference_stride: int = Field(default=1, ge=1)
+    target_fps: float | None = Field(default=None, ge=0)
+    output_width: int | None = Field(default=None, gt=0)
     jpeg_quality: int | None = Field(default=70, ge=10, le=100)
     enable_backend_overlays: bool = False
 
-    @validator("video_source")
+    @_field_validator("video_source")
     def _validate_source(cls, v: str) -> str:
         if v not in {"webcam", "file", "rtsp"}:
             raise ValueError("video_source must be webcam|file|rtsp")
         return v
 
-    @validator("grid_size")
+    @_field_validator("grid_size")
     def _validate_grid(cls, v: str) -> str:
         if "x" not in v.lower():
             raise ValueError("grid_size must look like 10x10")
@@ -60,3 +70,15 @@ class ConfigSchema(BaseModel):
         if int(gx) <= 0 or int(gy) <= 0:
             raise ValueError("grid_size values must be > 0")
         return v
+
+    @_field_validator("model_task")
+    def _validate_model_task(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v2 = str(v).strip().lower()
+        if v2 in {"", "auto", "none"}:
+            return None
+        if v2 not in {"detect", "pose"}:
+            raise ValueError("model_task must be auto|detect|pose")
+        return v2
+

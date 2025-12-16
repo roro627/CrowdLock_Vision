@@ -14,6 +14,9 @@ class DummyEngine:
     def latest_summary(self):
         return self._summary
 
+    def stream_fps(self):
+        return 0.0
+
     # websocket generators are unused in these tests
 
 
@@ -39,6 +42,7 @@ def test_metadata_websocket_includes_frame_size():
             data = ws.receive_json()
             assert data["frame_id"] == 1
             assert data["frame_size"] == [1920, 1080]
+            assert "stream_fps" in data
     finally:
         engine_state._engine = previous
 
@@ -73,6 +77,7 @@ def test_stats_with_summary():
     data = res.json()
     assert data["total_persons"] == 1
     assert data["fps"] == summary.fps
+    assert "stream_fps" in data
     assert data["densest_cell"] == [0, 0]
     assert data["error"] is None
 
@@ -88,6 +93,7 @@ def test_stats_without_summary_reports_error():
     data = res.json()
     assert data["total_persons"] == 0
     assert data["error"] == "Failed"
+    assert "stream_fps" in data
 
 
 def test_config_validation():
@@ -97,7 +103,6 @@ def test_config_validation():
         "video_path": None,
         "rtsp_url": None,
         "model_name": "yolov8n-pose.pt",
-        "device": None,
         "confidence": 1.2,  # invalid
         "grid_size": "10",
         "smoothing": 0.2,
@@ -107,3 +112,19 @@ def test_config_validation():
     }
     res = client.post("/config", json=payload)
     assert res.status_code == 422
+
+
+def test_config_presets_list_and_apply():
+    client = TestClient(app)
+    res = client.get("/config/presets")
+    assert res.status_code == 200
+    data = res.json()
+    assert "presets" in data
+    ids = {p["id"] for p in data["presets"]}
+    assert {"qualite", "equilibre", "fps_max"}.issubset(ids)
+
+    res2 = client.post("/config/presets/equilibre")
+    assert res2.status_code == 200
+    cfg = res2.json()
+    assert cfg["inference_width"] == 640
+    assert cfg["inference_stride"] == 2

@@ -4,49 +4,119 @@ import os
 from pathlib import Path
 
 import yaml
-from pydantic import Field, validator
+from pydantic import Field
 
 try:  # Pydantic v2
-    from pydantic_settings import BaseSettings
+    from pydantic import field_validator as _field_validator
+except Exception:  # pragma: no cover - Pydantic v1
+    from pydantic import validator as _field_validator  # type: ignore
+
+try:  # Pydantic v2
+    from pydantic_settings import BaseSettings, SettingsConfigDict
 except ModuleNotFoundError:  # pragma: no cover - fallback for v1 envs
     from pydantic import BaseSettings  # type: ignore[attr-defined]
+    SettingsConfigDict = None  # type: ignore[assignment]
 
 
 class BackendSettings(BaseSettings):
     video_source: str = Field("file", description="webcam|file|rtsp")
     video_path: str | None = None
     rtsp_url: str | None = None
-    model_name: str = Field("yolov8n-pose.pt")
-    device: str | None = None
+    # Default to the plain detection model for CPU performance.
+    # The pose model is supported but significantly slower on CPU.
+    model_name: str = Field("yolov8n.pt")
+    # Ultralytics task override: None/"auto" uses the model default.
+    # "detect" is significantly faster than "pose" on CPU.
+    model_task: str | None = Field(default="detect", description="auto|detect|pose")
     confidence: float = 0.35
     grid_size: str = Field("10x10", description="e.g. 8x8")
     smoothing: float = 0.2
 
     # Performance settings
     inference_width: int = 640
+    # Run detector every N frames (1 = every frame). Skipped frames reuse last tracks.
+    # Default to 2 to materially increase throughput on CPU while keeping tracking usable.
+    inference_stride: int = 2
+    # Optional cap for processing loop FPS. Use 0 to run as fast as possible.
+    # If None, engine picks a sensible default based on the source.
+    target_fps: float | None = None
+    # Optional: downscale outgoing MJPEG frames before JPEG encoding.
+    # Keeps detection/metadata coordinates in original frame space.
+    output_width: int | None = None
     jpeg_quality: int = 70
     enable_backend_overlays: bool = False
 
-    class Config:
-        env_prefix = "CLV_"
-        validate_assignment = True
+    # Pydantic v2 uses model_config; Pydantic v1 uses inner Config.
+    if SettingsConfigDict is not None:  # pragma: no cover - depends on env
+        model_config = SettingsConfigDict(env_prefix="CLV_", validate_assignment=True)
+    else:  # pragma: no cover - v1 only
+        class Config:
+            env_prefix = "CLV_"
+            validate_assignment = True
 
-    @validator("confidence")
+    @_field_validator("confidence")
     def _validate_confidence(cls, v: float) -> float:
         if not 0.0 < v <= 1.0:
             raise ValueError("confidence must be in (0, 1]")
         return v
 
-    @validator("grid_size")
+    @_field_validator("grid_size")
     def _validate_grid(cls, v: str) -> str:
         _parse_grid(v)  # will raise if invalid
         return v
 
-    @validator("video_source")
+    @_field_validator("video_source")
     def _validate_source(cls, v: str) -> str:
         if v not in {"webcam", "file", "rtsp"}:
             raise ValueError("video_source must be webcam|file|rtsp")
         return v
+
+    @_field_validator("model_task")
+    def _validate_model_task(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v2 = str(v).strip().lower()
+        if v2 in {"", "auto", "none"}:
+            return None
+        if v2 not in {"detect", "pose"}:
+            raise ValueError("model_task must be auto|detect|pose")
+        return v2
+
+    @_field_validator("output_width")
+    def _validate_output_width(cls, v: int | None) -> int | None:
+        if v is None:
+            return v
+        if v <= 0:
+            raise ValueError("output_width must be > 0")
+        return v
+
+    @_field_validator("inference_stride")
+    def _validate_inference_stride(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("inference_stride must be >= 1")
+        return v
+
+    @_field_validator("target_fps")
+    def _validate_target_fps(cls, v: float | None) -> float | None:
+        if v is None:
+            return v
+        if v < 0:
+            raise ValueError("target_fps must be >= 0")
+        return float(v)
+
+
+def settings_to_dict(settings: BackendSettings) -> dict:
+    # Pydantic v2: model_dump(); v1: dict().
+    if hasattr(settings, "model_dump"):
+        return settings.model_dump()  # type: ignore[no-any-return]
+    return settings.dict()
+
+
+def _fields_set(obj) -> set[str]:
+    fields_set = getattr(obj, "model_fields_set", None)
+    if fields_set is not None:
+        return set(fields_set)
+    return set(getattr(obj, "__fields_set__", set()))
 
 
 def _parse_grid(grid: str) -> tuple[int, int]:
@@ -64,13 +134,19 @@ def _config_path() -> Path:
 
 
 def load_settings() -> BackendSettings:
-    data = {}
+    data: dict = {}
     path = _config_path()
     if path.exists():
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-    # Environment variables (handled by BaseSettings) override YAML values.
-    return BackendSettings(**data)
+
+    # BaseSettings gives init kwargs higher priority than environment variables.
+    # We want the opposite here: YAML provides defaults and env vars override.
+    env_settings = BackendSettings()
+    env_overrides = {name: getattr(env_settings, name) for name in _fields_set(env_settings)}
+
+    merged = {**data, **env_overrides}
+    return BackendSettings(**merged)
 
 
 def density_from_settings(settings: BackendSettings) -> tuple[int, int]:

@@ -133,7 +133,11 @@ export function VideoOverlay({ frame, showBoxes, showHead, showBody, showDensity
       <div className="absolute left-3 bottom-3 text-sm text-slate-200 bg-slate-900/60 px-3 py-1 rounded-full space-x-2 flex items-center">
         <span className="text-xs uppercase tracking-wide text-slate-400">{connection}</span>
         <span>•</span>
-        <span>{frame ? `${frame.fps.toFixed(1)} fps / ${frame.persons.length} people` : 'Buffering…'}</span>
+        <span>
+          {frame
+            ? `${frame.fps.toFixed(1)} infer${typeof frame.stream_fps === 'number' ? ` / ${frame.stream_fps.toFixed(1)} stream` : ''} fps / ${frame.persons.length} people`
+            : 'Buffering…'}
+        </span>
         {backendError && <span className="text-red-400">({backendError})</span>}
       </div>
     </div>

@@ -1,11 +1,16 @@
 video_source: file
 video_path: testdata/videos/855564-hd_1920_1080_24fps.mp4
 rtsp_url: null
-model_name: yolov8n-pose.pt
-device: null
+model_name: yolov8n.pt
+# Task override: auto|detect|pose. On CPU, 'detect' is much faster.
+model_task: detect
 confidence: 0.35
 grid_size: 10x10
 smoothing: 0.2
 inference_width: 640
+# Run detector every N frames (1 = every frame). Skipped frames reuse last tracks.
+inference_stride: 2
+# Optional: downscale outgoing MJPEG frames (huge FPS win for 1080p sources)
+# output_width: 960
 jpeg_quality: 70
 enable_backend_overlays: false

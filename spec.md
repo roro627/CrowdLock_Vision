@@ -97,7 +97,7 @@ For every detected person:
 
 ### 2.6 Performance & Real‑Time Constraints
 
-* Target: near real‑time performance at common resolutions (e.g., 720p / 1080p) on a typical GPU‑equipped machine.
+* Target: near real‑time performance at common resolutions (e.g., 720p / 1080p) on a typical CPU‑only machine.
 * Adjustable parameters:
 
   * Input frame size / downscaling.
@@ -191,7 +191,7 @@ class PersonDetector:
 
 Considerations:
 
-* Support for different backends (CPU, GPU).
+* CPU-only backend.
 * Configurable confidence thresholds and NMS settings.
 
 ### 4.2 Trackers Module (`backend/core/trackers/`)
@@ -345,7 +345,7 @@ Security & deployment:
 Provide configuration files or environment variables for at least:
 
 * Model type and path.
-* Inference device (CPU / GPU).
+* Inference performance settings (CPU-only).
 * Input resolution and frame rate caps.
 * Grid size for density analysis.
 * Detection thresholds and tracking parameters.
@@ -406,7 +406,7 @@ However, this output is used only for **inspection and generic coherence checks*
 
 ## 8. Non‑Functional Requirements
 
-* **Lightweight & optimized core**: aside from the web interface, all backend components (detectors, trackers, analytics, video pipeline, API) must be designed to be as **resource‑efficient** as possible for the target hardware, minimizing CPU/GPU usage, memory footprint, and unnecessary allocations while preserving real‑time behavior.
+* **Lightweight & optimized core**: aside from the web interface, all backend components (detectors, trackers, analytics, video pipeline, API) must be designed to be as **resource‑efficient** as possible for the target hardware, minimizing CPU usage, memory footprint, and unnecessary allocations while preserving real‑time behavior.
 * **Code clarity**: small, focused modules; no monolithic scripts.
 * **Logging**: structured logs for debugging performance and detection quality.
 * **Testing**: unit tests for analytics logic (e.g., density grid, target point computation).

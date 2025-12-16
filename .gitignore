@@ -4,6 +4,8 @@ web/tsconfig.node.tsbuildinfo
 web/vite.config.d.ts
 dist/
 node_modules/
+web/dist/
+web/node_modules/
 config/backend.config.yml
 
 # Models and large weights

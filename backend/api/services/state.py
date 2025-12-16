@@ -3,7 +3,7 @@ from __future__ import annotations
 from threading import RLock
 
 from backend.api.services.engine import VideoEngine
-from backend.core.config.settings import BackendSettings, load_settings
+from backend.core.config.settings import BackendSettings, load_settings, settings_to_dict
 
 _settings: BackendSettings | None = None
 _engine: VideoEngine | None = None
@@ -23,7 +23,7 @@ def reload_settings(data: dict | None = None) -> BackendSettings:
     with _lock:
         base = load_settings()
         if data:
-            _settings = BackendSettings(**{**base.dict(), **data})
+            _settings = BackendSettings(**{**settings_to_dict(base), **data})
         else:
             _settings = base
         if _engine:

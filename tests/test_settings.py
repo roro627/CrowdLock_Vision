@@ -26,3 +26,24 @@ def test_parse_grid_validation():
         cfg._parse_grid("10")
     with pytest.raises(ValueError):
         cfg._parse_grid("0x5")
+
+
+def test_output_width_validation():
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(output_width=0)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(output_width=-10)
+
+
+def test_inference_stride_validation():
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(inference_stride=0)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(inference_stride=-1)
+    assert cfg.BackendSettings(inference_stride=1).inference_stride == 1
+
+
+def test_target_fps_validation():
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(target_fps=-1)
+    assert cfg.BackendSettings(target_fps=0).target_fps == 0.0
