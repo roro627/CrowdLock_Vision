@@ -15,6 +15,7 @@ from backend.core.config.presets import PRESET_LABELS, preset_patch
 from backend.core.config.settings import _parse_grid
 from backend.core.detectors.yolo import YoloPersonDetector
 from backend.core.overlay.draw import draw_overlays
+from backend.core.roi import RoiConfig
 from backend.core.trackers.simple_tracker import SimpleTracker
 
 
@@ -73,6 +74,16 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
         detector=detector,
         tracker=SimpleTracker(),
         density_config=DensityConfig(grid_size=grid, smoothing=smoothing),
+        roi_config=RoiConfig(
+            enabled=bool(settings.get("roi_enabled", False)),
+            track_margin=float(settings.get("roi_track_margin", 0.30)),
+            entry_band=float(settings.get("roi_entry_band", 0.08)),
+            merge_iou=float(settings.get("roi_merge_iou", 0.20)),
+            max_area_fraction=float(settings.get("roi_max_area_fraction", 0.70)),
+            full_frame_every_n=int(settings.get("roi_full_frame_every_n", 15)),
+            force_full_frame_on_track_loss=float(settings.get("roi_force_full_frame_on_track_loss", 0.25)),
+            detections_nms_iou=float(settings.get("roi_detections_nms_iou", 0.50)),
+        ),
     )
 
     inference_width = int(settings.get("inference_width", 640) or 640)
@@ -99,6 +110,15 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
     total_ms: list[float] = []
 
     infer_flags: list[float] = []
+
+    # ROI profiling stats (only meaningful when pipeline has ROI enabled)
+    roi_used_flags: list[float] = []
+    roi_counts: list[float] = []
+    roi_area_fracs: list[float] = []
+    roi_mosaic_area_fracs: list[float] = []
+    roi_mosaic_area_fracs_est: list[float] = []
+    roi_crop_area_fracs: list[float] = []
+    track_loss_fracs: list[float] = []
 
     frames = 0
 
@@ -131,6 +151,15 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
         track_ms.append(float(timings.get("track_ms", 0.0)))
         density_ms.append(float(timings.get("density_ms", 0.0)))
         pipeline_ms.append(float(timings.get("pipeline_ms", 0.0)))
+
+        # ROI stats (present when ROI is enabled; otherwise default values)
+        roi_used_flags.append(float(timings.get("roi_used", 0.0)))
+        roi_counts.append(float(timings.get("roi_count", 0.0)))
+        roi_area_fracs.append(float(timings.get("roi_area_frac", 0.0)))
+        roi_mosaic_area_fracs.append(float(timings.get("roi_mosaic_area_frac", 0.0)))
+        roi_mosaic_area_fracs_est.append(float(timings.get("roi_mosaic_area_frac_est", 0.0)))
+        roi_crop_area_fracs.append(float(timings.get("roi_crop_area_frac", 0.0)))
+        track_loss_fracs.append(float(timings.get("track_loss_frac", 0.0)))
 
         annotated = processed
         if enable_overlay:
@@ -215,6 +244,22 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
             "track": _percentiles(_filter(track_ms)),
             "pipeline": _percentiles(_filter(pipeline_ms)),
         },
+        "roi_stats": {
+            "roi_used_ratio": (sum(1.0 for v in roi_used_flags if v >= 0.5) / measured)
+            if measured > 0
+            else 0.0,
+            "roi_used_ratio_per_infer": (
+                (sum(1.0 for v, keep in zip(roi_used_flags, infer_mask) if keep and v >= 0.5) / infer_measured)
+                if infer_measured > 0
+                else 0.0
+            ),
+            "roi_count": _percentiles(roi_counts),
+            "roi_area_frac": _percentiles(roi_area_fracs),
+            "roi_mosaic_area_frac": _percentiles(roi_mosaic_area_fracs),
+            "roi_mosaic_area_frac_est": _percentiles(roi_mosaic_area_fracs_est),
+            "roi_crop_area_frac": _percentiles(roi_crop_area_fracs),
+            "track_loss_frac": _percentiles(track_loss_fracs),
+        },
     }
     return result
 
@@ -239,6 +284,16 @@ def main() -> None:
 
     parser.add_argument("--inference-width", type=int, default=640)
     parser.add_argument("--inference-stride", type=int, default=1)
+
+    # ROI-based inference (tracker-driven crops)
+    parser.add_argument("--roi", action="store_true", help="Enable ROI-based inference")
+    parser.add_argument("--roi-track-margin", type=float, default=0.30)
+    parser.add_argument("--roi-entry-band", type=float, default=0.08)
+    parser.add_argument("--roi-merge-iou", type=float, default=0.20)
+    parser.add_argument("--roi-max-area-fraction", type=float, default=0.70)
+    parser.add_argument("--roi-full-frame-every-n", type=int, default=15)
+    parser.add_argument("--roi-force-full-frame-on-track-loss", type=float, default=0.25)
+    parser.add_argument("--roi-detections-nms-iou", type=float, default=0.50)
 
     parser.add_argument("--output-width", type=int, default=0, help="0 disables downscale")
     parser.add_argument("--jpeg-quality", type=int, default=70)
@@ -272,6 +327,14 @@ def main() -> None:
         "smoothing": args.smoothing,
         "inference_width": args.inference_width,
         "inference_stride": args.inference_stride,
+        "roi_enabled": bool(args.roi),
+        "roi_track_margin": float(args.roi_track_margin),
+        "roi_entry_band": float(args.roi_entry_band),
+        "roi_merge_iou": float(args.roi_merge_iou),
+        "roi_max_area_fraction": float(args.roi_max_area_fraction),
+        "roi_full_frame_every_n": int(args.roi_full_frame_every_n),
+        "roi_force_full_frame_on_track_loss": float(args.roi_force_full_frame_on_track_loss),
+        "roi_detections_nms_iou": float(args.roi_detections_nms_iou),
         "output_width": None if args.output_width <= 0 else args.output_width,
         "jpeg_quality": args.jpeg_quality,
         "enable_backend_overlays": bool(args.enable_overlay),

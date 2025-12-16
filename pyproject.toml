@@ -16,3 +16,10 @@ ignore = ["E501", "B008"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["backend", "scripts", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = [
+	"ignore::PendingDeprecationWarning:starlette\\.formparsers",
+]

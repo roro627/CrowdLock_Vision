@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 import backend.tools.run_on_video as rov
+from backend.core.types import FrameSummary, TrackedPerson
 
 
 class _FakeCap:
@@ -60,6 +61,56 @@ def test_run_on_video_writes_json(monkeypatch, tmp_path):
     assert out.exists()
     data = json.loads(out.read_text(encoding="utf-8"))
     assert len(data) == 1
+
+
+def test_run_on_video_serializes_tracked_persons(monkeypatch, tmp_path):
+    frames = [np.zeros((10, 10, 3), dtype=np.uint8)]
+    monkeypatch.setattr(rov.cv2, "VideoCapture", lambda *_a, **_k: _FakeCap(opened=True, frames=frames))
+    monkeypatch.setattr(rov, "_parse_grid", lambda _s: (2, 2))
+    monkeypatch.setattr(rov, "DensityConfig", lambda *a, **k: object())
+    monkeypatch.setattr(rov, "SimpleTracker", lambda *a, **k: object())
+
+    class _Pipe:
+        def __init__(self, *a, **k):
+            pass
+
+        def process(self, frame, inference_width=640):
+            summary = FrameSummary(
+                frame_id=1,
+                timestamp=1.0,
+                persons=[
+                    TrackedPerson(
+                        id=1,
+                        bbox=(1.0, 2.0, 3.0, 4.0),
+                        head_center=(0.0, 0.0),
+                        body_center=(0.0, 0.0),
+                        confidence=0.9,
+                    )
+                ],
+                density={},
+                fps=1.0,
+                frame_size=(10, 10),
+            )
+            return summary, frame
+
+    monkeypatch.setattr(rov, "VisionPipeline", _Pipe)
+
+    out = tmp_path / "out.json"
+    args = types.SimpleNamespace(
+        input="x",
+        output=str(out),
+        model="m",
+        conf=0.3,
+        grid_size="2x2",
+        smoothing=0.2,
+        inference_width=10,
+        max_frames=1,
+        mock=True,
+    )
+    rov.run(args)
+
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data[0]["persons"][0]["id"] == 1
 
 
 def test_run_on_video_non_mock_uses_yolo_detector(monkeypatch, tmp_path):

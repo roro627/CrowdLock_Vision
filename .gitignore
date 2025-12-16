@@ -6,6 +6,7 @@ dist/
 node_modules/
 web/dist/
 web/node_modules/
+web/package-lock.json
 config/backend.config.yml
 
 # Models and large weights

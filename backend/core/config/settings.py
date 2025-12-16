@@ -37,6 +37,16 @@ class BackendSettings(BaseSettings):
     # Run detector every N frames (1 = every frame). Skipped frames reuse last tracks.
     # Default to 2 to materially increase throughput on CPU while keeping tracking usable.
     inference_stride: int = 2
+
+    # ROI-based inference (tracker-driven crops + peripheral entry bands)
+    roi_enabled: bool = False
+    roi_track_margin: float = 0.30
+    roi_entry_band: float = 0.08
+    roi_merge_iou: float = 0.20
+    roi_max_area_fraction: float = 0.70
+    roi_full_frame_every_n: int = 15
+    roi_force_full_frame_on_track_loss: float = 0.25
+    roi_detections_nms_iou: float = 0.50
     # Optional cap for processing loop FPS. Use 0 to run as fast as possible.
     # If None, engine picks a sensible default based on the source.
     target_fps: float | None = None
@@ -102,6 +112,48 @@ class BackendSettings(BaseSettings):
             return v
         if v < 0:
             raise ValueError("target_fps must be >= 0")
+        return float(v)
+
+    @_field_validator("roi_track_margin")
+    def _validate_roi_track_margin(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("roi_track_margin must be >= 0")
+        return float(v)
+
+    @_field_validator("roi_entry_band")
+    def _validate_roi_entry_band(cls, v: float) -> float:
+        if v < 0:
+            raise ValueError("roi_entry_band must be >= 0")
+        return float(v)
+
+    @_field_validator("roi_merge_iou")
+    def _validate_roi_merge_iou(cls, v: float) -> float:
+        if not 0.0 <= float(v) <= 1.0:
+            raise ValueError("roi_merge_iou must be in [0, 1]")
+        return float(v)
+
+    @_field_validator("roi_max_area_fraction")
+    def _validate_roi_max_area_fraction(cls, v: float) -> float:
+        if not 0.0 < float(v) <= 1.0:
+            raise ValueError("roi_max_area_fraction must be in (0, 1]")
+        return float(v)
+
+    @_field_validator("roi_full_frame_every_n")
+    def _validate_roi_full_frame_every_n(cls, v: int) -> int:
+        if int(v) < 0:
+            raise ValueError("roi_full_frame_every_n must be >= 0")
+        return int(v)
+
+    @_field_validator("roi_force_full_frame_on_track_loss")
+    def _validate_roi_force_full_frame_on_track_loss(cls, v: float) -> float:
+        if not 0.0 <= float(v) <= 1.0:
+            raise ValueError("roi_force_full_frame_on_track_loss must be in [0, 1]")
+        return float(v)
+
+    @_field_validator("roi_detections_nms_iou")
+    def _validate_roi_detections_nms_iou(cls, v: float) -> float:
+        if not 0.0 <= float(v) <= 1.0:
+            raise ValueError("roi_detections_nms_iou must be in [0, 1]")
         return float(v)
 
 

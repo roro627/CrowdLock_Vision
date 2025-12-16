@@ -47,3 +47,40 @@ def test_target_fps_validation():
     with pytest.raises(ValueError):
         cfg.BackendSettings(target_fps=-1)
     assert cfg.BackendSettings(target_fps=0).target_fps == 0.0
+
+
+def test_roi_settings_validation():
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(roi_track_margin=-0.1)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(roi_entry_band=-0.1)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(roi_merge_iou=-0.1)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(roi_merge_iou=1.1)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(roi_max_area_fraction=0.0)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(roi_max_area_fraction=1.1)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(roi_full_frame_every_n=-1)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(roi_force_full_frame_on_track_loss=-0.1)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(roi_force_full_frame_on_track_loss=1.1)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(roi_detections_nms_iou=-0.1)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(roi_detections_nms_iou=1.1)
+
+    ok = cfg.BackendSettings(
+        roi_enabled=True,
+        roi_track_margin=0.3,
+        roi_entry_band=0.08,
+        roi_merge_iou=0.2,
+        roi_max_area_fraction=0.7,
+        roi_full_frame_every_n=15,
+        roi_force_full_frame_on_track_loss=0.25,
+        roi_detections_nms_iou=0.5,
+    )
+    assert ok.roi_enabled is True

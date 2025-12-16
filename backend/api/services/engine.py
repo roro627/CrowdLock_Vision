@@ -15,6 +15,7 @@ from backend.core.analytics.pipeline import VisionPipeline
 from backend.core.config.settings import BackendSettings, density_from_settings
 from backend.core.detectors.yolo import YoloPersonDetector
 from backend.core.overlay.draw import draw_overlays
+from backend.core.roi import RoiConfig
 from backend.core.trackers.simple_tracker import SimpleTracker
 from backend.core.types import FrameSummary
 from backend.core.video_sources.base import FileSource, RTSPSource, VideoSource, WebcamSource
@@ -34,6 +35,16 @@ class VideoEngine:
             ),
             tracker=SimpleTracker(),
             density_config=DensityConfig(grid_size=(gx, gy), smoothing=settings.smoothing),
+            roi_config=RoiConfig(
+                enabled=bool(settings.roi_enabled),
+                track_margin=float(settings.roi_track_margin),
+                entry_band=float(settings.roi_entry_band),
+                merge_iou=float(settings.roi_merge_iou),
+                max_area_fraction=float(settings.roi_max_area_fraction),
+                full_frame_every_n=int(settings.roi_full_frame_every_n),
+                force_full_frame_on_track_loss=float(settings.roi_force_full_frame_on_track_loss),
+                detections_nms_iou=float(settings.roi_detections_nms_iou),
+            ),
         )
         if settings.target_fps is not None:
             self._target_fps = float(settings.target_fps)

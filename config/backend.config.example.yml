@@ -10,6 +10,17 @@ smoothing: 0.2
 inference_width: 640
 # Run detector every N frames (1 = every frame). Skipped frames reuse last tracks.
 inference_stride: 2
+
+# ROI-based inference (tracker-driven crops + peripheral entry bands)
+# Keeps full-frame inference as a periodic/triggered fallback.
+roi_enabled: false
+roi_track_margin: 0.30
+roi_entry_band: 0.08
+roi_merge_iou: 0.20
+roi_max_area_fraction: 0.70
+roi_full_frame_every_n: 15
+roi_force_full_frame_on_track_loss: 0.25
+roi_detections_nms_iou: 0.50
 # Optional: downscale outgoing MJPEG frames (huge FPS win for 1080p sources)
 # output_width: 960
 jpeg_quality: 70
