@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FramePayload } from '../types';
 
 const WS_MIN_BACKOFF = 500;
@@ -14,6 +14,7 @@ function normalizeUrl(raw: string): string {
 export function useMetadataStream(url: string) {
   const [latest, setLatest] = useState<FramePayload | null>(null);
   const [status, setStatus] = useState<'connecting' | 'open' | 'closed'>('connecting');
+  const framesByIdRef = useRef<Map<number, FramePayload>>(new Map());
   const retryRef = useRef(WS_MIN_BACKOFF);
   const wsRef = useRef<WebSocket | null>(null);
   const timeoutRef = useRef<number | null>(null);
@@ -88,7 +89,15 @@ export function useMetadataStream(url: string) {
           const prev = latencyMsEmaRef.current;
           const ema = prev === null ? rawMs : prev * 0.85 + rawMs * 0.15;
           latencyMsEmaRef.current = ema;
-          setLatest({ ...data, latency_ms: ema });
+          const payload: FramePayload = { ...data, latency_ms: ema };
+          framesByIdRef.current.set(payload.frame_id, payload);
+          // Keep memory bounded: store only the most recent N frames.
+          while (framesByIdRef.current.size > 200) {
+            const firstKey = framesByIdRef.current.keys().next().value as number | undefined;
+            if (firstKey === undefined) break;
+            framesByIdRef.current.delete(firstKey);
+          }
+          setLatest(payload);
         } catch (e) {
           console.error('Failed to parse message', e);
         }
@@ -114,5 +123,7 @@ export function useMetadataStream(url: string) {
     };
   }, [url]);
 
-  return { latest, status };
+  const getById = useCallback((frameId: number) => framesByIdRef.current.get(frameId), []);
+
+  return { latest, status, getById };
 }

@@ -29,16 +29,30 @@ async def stream_video():
 
         last_engine: VideoEngine | None = None
         last_sent: bytes | None = None
+        last_sent_id: int | None = None
         while True:
             engine = get_engine()
             if engine is not last_engine:
                 last_engine = engine
                 last_sent = None
+                last_sent_id = None
 
-            frame = engine.latest_frame()
-            if frame is not None and frame != last_sent:
-                yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
+            if hasattr(engine, "latest_stream_packet"):
+                frame, summary = engine.latest_stream_packet()
+            else:
+                frame = engine.latest_frame()
+                summary = engine.latest_stream_summary() if hasattr(engine, "latest_stream_summary") else None
+
+            frame_id = int(summary.frame_id) if summary is not None else None
+            if frame is not None and (frame != last_sent or frame_id != last_sent_id):
+                headers = b"--frame\r\n" b"Content-Type: image/jpeg\r\n"
+                if frame_id is not None:
+                    headers += f"X-Frame-Id: {frame_id}\r\n".encode("ascii")
+                headers += f"Content-Length: {len(frame)}\r\n".encode("ascii")
+                headers += b"\r\n"
+                yield headers + frame + b"\r\n"
                 last_sent = frame
+                last_sent_id = frame_id
             await asyncio.sleep(0.02)
 
     return StreamingResponse(

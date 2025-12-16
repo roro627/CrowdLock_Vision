@@ -64,6 +64,7 @@ class VideoEngine:
         self._latest_frame = None
         self._latest_summary: FrameSummary | None = None
         self._latest_stream_summary: FrameSummary | None = None
+        self._latest_stream_packet: tuple[bytes, FrameSummary] | None = None
         self._capture_lock = threading.Lock()
         self._capture_event = threading.Event()
         self._latest_captured_frame: Any | None = None
@@ -226,9 +227,11 @@ class VideoEngine:
                                 else (self._stream_fps * (1.0 - self._encode_alpha) + instant * self._encode_alpha)
                             )
                     self._last_encoded_at = now
-                    self._latest_frame = jpg.tobytes()
+                    frame_bytes = jpg.tobytes()
+                    self._latest_frame = frame_bytes
                     # Keep a summary aligned with the encoded frame for smoother client overlays.
                     self._latest_stream_summary = _summary
+                    self._latest_stream_packet = (frame_bytes, _summary)
             except Exception:
                 logger.exception("JPEG encoding failed")
 
@@ -243,6 +246,13 @@ class VideoEngine:
     def latest_stream_summary(self) -> FrameSummary | None:
         with self._lock:
             return self._latest_stream_summary
+
+    def latest_stream_packet(self) -> tuple[bytes | None, FrameSummary | None]:
+        with self._lock:
+            if self._latest_stream_packet is None:
+                return None, None
+            frame, summary = self._latest_stream_packet
+            return frame, summary
 
     def stream_fps(self) -> float:
         with self._lock:

@@ -12,7 +12,7 @@ const API_BASE = api.base;
 function App() {
   const wsUrl = useMemo(() => API_BASE.replace('http', 'ws') + '/stream/metadata', [API_BASE]);
   const videoUrl = `${API_BASE}/stream/video`;
-  const { latest, status } = useMetadataStream(wsUrl);
+  const { latest, status, getById } = useMetadataStream(wsUrl);
   const { stats, error: statsError } = useStats(API_BASE);
   const [toggles, setToggles] = useState({ showBoxes: true, showHead: true, showBody: true, showDensity: true });
   const [configStatus, setConfigStatus] = useState<'idle' | 'saving' | 'error' | 'saved'>('idle');
@@ -39,6 +39,7 @@ function App() {
       <main className="px-6 pb-10 grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-6 items-start">
         <VideoOverlay
           frame={latest}
+          getFrameById={getById}
           showBoxes={toggles.showBoxes}
           showHead={toggles.showHead}
           showBody={toggles.showBody}
