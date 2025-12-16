@@ -17,6 +17,11 @@ export function useMetadataStream(url: string) {
   const retryRef = useRef(WS_MIN_BACKOFF);
   const wsRef = useRef<WebSocket | null>(null);
   const timeoutRef = useRef<number | null>(null);
+  const pingIntervalRef = useRef<number | null>(null);
+
+  // Estimate server_time ~= client_time + clockOffsetSec using an NTP-like exchange.
+  const clockOffsetSecRef = useRef(0);
+  const latencyMsEmaRef = useRef<number | null>(null);
 
   useEffect(() => {
     const wsUrl = normalizeUrl(url);
@@ -39,14 +44,51 @@ export function useMetadataStream(url: string) {
         if (disposed) return;
         setStatus('open');
         retryRef.current = WS_MIN_BACKOFF;
+
+        const sendPing = () => {
+          const ws = wsRef.current;
+          if (!ws || ws.readyState !== WebSocket.OPEN) return;
+          try {
+            ws.send(JSON.stringify({ type: 'ping', t: Date.now() / 1000 }));
+          } catch {
+            // ignore
+          }
+        };
+
+        sendPing();
+        if (pingIntervalRef.current) window.clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = window.setInterval(sendPing, 2000);
       };
       wsRef.current.onclose = () => scheduleReconnect();
       wsRef.current.onerror = () => scheduleReconnect();
       wsRef.current.onmessage = (evt) => {
         if (disposed) return;
         try {
-          const data = JSON.parse(evt.data) as FramePayload;
-          setLatest(data);
+          const msg = JSON.parse(evt.data) as unknown;
+          if (typeof msg !== 'object' || msg === null) return;
+
+          const maybeAny = msg as Record<string, unknown>;
+          if (maybeAny.type === 'pong') {
+            const t1 = typeof maybeAny.t === 'number' ? maybeAny.t : null;
+            const serverTime = typeof maybeAny.server_time === 'number' ? maybeAny.server_time : null;
+            if (t1 !== null && serverTime !== null) {
+              const t4 = Date.now() / 1000;
+              const rtt = Math.max(0, t4 - t1);
+              const offset = serverTime - (t1 + rtt / 2);
+              // Slow EMA to keep stable even with jitter.
+              clockOffsetSecRef.current = clockOffsetSecRef.current * 0.9 + offset * 0.1;
+            }
+            return;
+          }
+
+          const data = msg as FramePayload;
+          // Compute latency in *server clock* seconds: (client_now + offset) - server_timestamp
+          const nowServerSec = Date.now() / 1000 + clockOffsetSecRef.current;
+          const rawMs = Math.max(0, (nowServerSec - data.timestamp) * 1000);
+          const prev = latencyMsEmaRef.current;
+          const ema = prev === null ? rawMs : prev * 0.85 + rawMs * 0.15;
+          latencyMsEmaRef.current = ema;
+          setLatest({ ...data, latency_ms: ema });
         } catch (e) {
           console.error('Failed to parse message', e);
         }
@@ -59,6 +101,8 @@ export function useMetadataStream(url: string) {
       disposed = true;
       if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
+      if (pingIntervalRef.current) window.clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = null;
       if (wsRef.current) {
         wsRef.current.onopen = null;
         wsRef.current.onclose = null;

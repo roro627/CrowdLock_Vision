@@ -22,6 +22,8 @@ export interface FramePayload {
   fps: number;
   frame_size: [number, number];
   stream_fps?: number;
+  // Client-side diagnostics (derived from WS timing + clock offset estimation)
+  latency_ms?: number;
 }
 
 export interface StatsPayload {
