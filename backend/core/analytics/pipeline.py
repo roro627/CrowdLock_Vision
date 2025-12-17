@@ -69,7 +69,8 @@ class VisionPipeline:
         self.roi_config = roi_config or RoiConfig()
         self.density_map: DensityMap | None = None
         self.frame_id = 0
-        self._last_time = time.time()
+        # Use a monotonic clock for FPS deltas; keep wall-clock timestamps for payloads.
+        self._last_fps_at = time.perf_counter()
         self._fps = 0.0
         self._last_persons: list[TrackedPerson] = []
         self._detector_supports_imgsz: bool | None = None
@@ -312,15 +313,17 @@ class VisionPipeline:
         if profile:
             timings["density_ms"] = (t_density1 - t_density0) * 1000.0
 
-        now = time.time()
-        dt = now - self._last_time
+        now_perf = time.perf_counter()
+        dt = now_perf - self._last_fps_at
         if dt > 0:
             instant_fps = 1.0 / dt
             alpha = 0.1
             self._fps = (
                 instant_fps if self._fps == 0 else (self._fps * (1.0 - alpha) + instant_fps * alpha)
             )
-        self._last_time = now
+        self._last_fps_at = now_perf
+
+        now = time.time()
 
         summary = FrameSummary(
             frame_id=self.frame_id,

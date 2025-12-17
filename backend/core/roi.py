@@ -101,7 +101,7 @@ def bbox_iou(a: BBox, b: BBox) -> float:
     union = ua + ub - inter
     # Defensive: for well-formed boxes with inter>0, union should be >0.
     # Keep this guard to avoid division-by-zero on contrived NaN/inf inputs.
-    if union <= 0.0:
+    if union <= 0.0:  # pragma: no cover
         return 0.0
     return inter / union
 

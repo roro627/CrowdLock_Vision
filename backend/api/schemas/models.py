@@ -29,6 +29,7 @@ class DensitySchema(BaseModel):
     grid_size: list[int]
     cells: list[list[float]]
     max_cell: list[int]
+    hotspot_bbox: tuple[float, float, float, float] | list[float] | None = None
 
 
 class FrameSchema(BaseModel):
@@ -64,6 +65,7 @@ class ConfigSchema(BaseModel):
     confidence: float = Field(gt=0.0, le=1.0)
     grid_size: str
     smoothing: float = Field(ge=0.0, le=1.0)
+    density_hotspot_max_area_fraction: float = Field(default=0.25, gt=0.0, le=1.0)
     inference_width: int | None = Field(default=640, gt=0)
     inference_stride: int = Field(default=1, ge=1)
     target_fps: float | None = Field(default=None, ge=0)

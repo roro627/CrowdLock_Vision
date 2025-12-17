@@ -13,6 +13,7 @@ export interface Density {
   grid_size: [number, number];
   cells: number[][];
   max_cell: [number, number];
+  hotspot_bbox?: [number, number, number, number];
 }
 
 export interface FramePayload {

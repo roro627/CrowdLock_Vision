@@ -37,6 +37,8 @@
 - Tests:
   - Python: `pytest` (many tests use fakes/mocks so they don’t require heavy model inference).
   - Web: `cd web && npm test`.
+- **All code must be fully covered by tests, and all tests must pass without cheating, when running:**  
+  `C:/Users/romai/AppData/Local/Programs/Python/Python311/python.exe -m pytest --cov=backend --cov-report=term-missing`
 
 ## Project conventions
 - Python formatting/lint: Black + Ruff (`pyproject.toml`, line length 100). Keep type hints.

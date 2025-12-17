@@ -9,6 +9,12 @@ def test_density_counts_and_max_cell():
     assert summary["cells"][1][1] == 2  # bottom-right has two
     assert summary["max_cell"] == [1, 1]
 
+    x1, y1, x2, y2 = summary["hotspot_bbox"]
+    assert 0.0 <= x1 < x2 <= 100.0
+    assert 0.0 <= y1 < y2 <= 100.0
+    area = float(x2 - x1) * float(y2 - y1)
+    assert area <= 0.25 * 100.0 * 100.0
+
 
 def test_smoothing_applies():
     dm = DensityMap((100, 100), DensityConfig(grid_size=(1, 1), smoothing=0.5))

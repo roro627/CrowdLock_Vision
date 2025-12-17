@@ -4,9 +4,12 @@ import asyncio
 import logging
 import threading
 import time
+from dataclasses import replace
+from collections import deque
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from queue import Empty, Queue
+import hashlib
 
 import cv2
 import numpy as np
@@ -43,7 +46,11 @@ class VideoEngine:
                 task=settings.model_task,
             ),
             tracker=SimpleTracker(),
-            density_config=DensityConfig(grid_size=(gx, gy), smoothing=settings.smoothing),
+            density_config=DensityConfig(
+                grid_size=(gx, gy),
+                smoothing=settings.smoothing,
+                hotspot_max_area_fraction=float(settings.density_hotspot_max_area_fraction),
+            ),
             roi_config=RoiConfig(
                 enabled=bool(settings.roi_enabled),
                 track_margin=float(settings.roi_track_margin),
@@ -58,10 +65,35 @@ class VideoEngine:
         if settings.target_fps is not None:
             self._target_fps = float(settings.target_fps)
         else:
-            self._target_fps = 15.0 if settings.video_source == "webcam" else 30.0
+            # Default caps:
+            # - webcam: keep CPU reasonable in dev
+            # - file: let FileSource pace playback to the file's FPS (seconds), don't double-throttle
+            # - rtsp/other: keep a sane upper bound
+            if settings.video_source == "webcam":
+                self._target_fps = 15.0
+            elif settings.video_source == "file":
+                self._target_fps = 0.0
+            else:
+                self._target_fps = 30.0
         self._avg_processing_time = 0.0
         self._proc_alpha = 0.1
-        self._stream_fps = 0.0
+
+        # Process FPS: based on successful pipeline runs ("infer fps" shown in UI).
+        # This is intentionally separate from camera FPS to avoid misleading spikes.
+        self._processed_fps = 0.0
+        self._processed_times: deque[float] = deque()
+        # Require a minimum time span before reporting processed FPS to avoid startup spikes.
+        self._processed_fps_min_span_s = 0.25
+        # Input FPS: based on capture timestamps ("camera fps" for webcam sources).
+        self._camera_fps = 0.0
+        self._camera_alpha = 0.2
+        self._last_captured_at: float | None = None
+
+        # Duplicate guard: skip processing when consecutive frames are byte-identical.
+        self._last_frame_sig: bytes | None = None
+
+        # Output FPS: based on JPEG encode timestamps (kept for internal diagnostics).
+        self._out_fps = 0.0
         self._encode_alpha = 0.2
         self._last_encoded_at: float | None = None
         self.source: VideoSource | None = None
@@ -80,6 +112,19 @@ class VideoEngine:
         self._encode_queue: Queue[tuple[np.ndarray, FrameSummary]] = Queue(maxsize=1)
         self._encode_event = threading.Event()
         self.last_error: str | None = None
+
+    @staticmethod
+    def _frame_signature(frame: np.ndarray) -> bytes:
+        """Compute a stable signature for an image.
+
+        Uses a small downsample to keep cost low while guaranteeing equality detection
+        for identical frames.
+        """
+
+        h, w = frame.shape[:2]
+        step = max(1, min(h, w) // 64)
+        sample = frame[::step, ::step]
+        return hashlib.blake2b(sample.tobytes(), digest_size=8).digest()
 
     def _make_source(self) -> VideoSource:
         """Instantiate the configured `VideoSource`."""
@@ -142,6 +187,21 @@ class VideoEngine:
             if frame is None:
                 time.sleep(0.02)
                 continue
+            now = time.perf_counter()
+            with self._lock:
+                if self._last_captured_at is not None:
+                    dt = now - self._last_captured_at
+                    if dt > 0:
+                        instant = 1.0 / dt
+                        self._camera_fps = (
+                            instant
+                            if self._camera_fps == 0.0
+                            else (
+                                self._camera_fps * (1.0 - self._camera_alpha)
+                                + instant * self._camera_alpha
+                            )
+                        )
+                self._last_captured_at = now
             with self._capture_lock:
                 self._latest_captured_frame = frame
             self._capture_event.set()
@@ -159,7 +219,20 @@ class VideoEngine:
                 self._capture_event.clear()
             if frame is None:
                 continue
-            start = time.time()
+
+            # Hard guarantee: do not reprocess byte-identical frames.
+            try:
+                sig = self._frame_signature(frame)
+            except Exception:
+                sig = None
+            if sig is not None and sig == self._last_frame_sig:
+                # Avoid a tight loop if a source/driver repeats the same buffer.
+                time.sleep(0.001)
+                continue
+            if sig is not None:
+                self._last_frame_sig = sig
+
+            start = time.perf_counter()
             try:
                 summary, processed_frame = self.pipeline.process(
                     frame,
@@ -171,7 +244,22 @@ class VideoEngine:
                 self.last_error = "Pipeline processing failed"
                 logger.exception(self.last_error)
                 continue
-            duration = time.time() - start
+            duration = time.perf_counter() - start
+
+            # Update "infer fps" based on actual pipeline executions using a rolling time window.
+            # This prevents huge numbers from a single tiny dt right after startup.
+            now = time.perf_counter()
+            self._processed_times.append(now)
+            while self._processed_times and (now - self._processed_times[0]) > 1.0:
+                self._processed_times.popleft()
+            if len(self._processed_times) >= 2:
+                span = now - self._processed_times[0]
+                if span >= self._processed_fps_min_span_s:
+                    self._processed_fps = float((len(self._processed_times) - 1) / span)
+
+            # Ensure the payload's fps matches the engine-level processed FPS.
+            summary = replace(summary, fps=float(self._processed_fps))
+
             if self._avg_processing_time == 0:
                 self._avg_processing_time = duration
             else:
@@ -244,11 +332,11 @@ class VideoEngine:
                         dt = now - self._last_encoded_at
                         if dt > 0:
                             instant = 1.0 / dt
-                            self._stream_fps = (
+                            self._out_fps = (
                                 instant
-                                if self._stream_fps == 0.0
+                                if self._out_fps == 0.0
                                 else (
-                                    self._stream_fps * (1.0 - self._encode_alpha)
+                                    self._out_fps * (1.0 - self._encode_alpha)
                                     + instant * self._encode_alpha
                                 )
                             )
@@ -288,10 +376,10 @@ class VideoEngine:
             return frame, summary
 
     def stream_fps(self) -> float:
-        """Approximate outgoing MJPEG frame rate based on encode timestamps."""
+        """Approximate input FPS based on capture timestamps (camera/file decode)."""
 
         with self._lock:
-            return float(self._stream_fps)
+            return float(self._camera_fps)
 
     async def mjpeg_generator(self) -> AsyncGenerator[bytes, None]:
         """Yield MJPEG multipart chunks for HTTP streaming."""

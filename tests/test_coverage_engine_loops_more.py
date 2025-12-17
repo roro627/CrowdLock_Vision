@@ -269,7 +269,7 @@ def test_process_loop_drops_old_encode_frame_when_queue_full(monkeypatch):
         times["n"] += 1
         return float(times["n"])  # duration = 1s
 
-    monkeypatch.setattr(eng.time, "time", _time)
+    monkeypatch.setattr(eng.time, "perf_counter", _time)
 
     def _process(_frame, inference_width=None, inference_stride=None):
         engine.running = False
@@ -303,8 +303,10 @@ def test_process_loop_updates_avg_processing_time_on_second_frame(monkeypatch):
     engine.source = types.SimpleNamespace(close=lambda: None)
     frame = np.zeros((10, 10, 3), dtype=np.uint8)
 
-    # Two frames, then stop.
-    frames = [frame, frame]
+    # Two distinct frames, then stop (avoid duplicate-guard skip).
+    frame2 = frame.copy()
+    frame2[0, 0, 0] = 1
+    frames = [frame, frame2]
     calls = {"n": 0}
 
     def _wait(timeout=None):
@@ -324,7 +326,7 @@ def test_process_loop_updates_avg_processing_time_on_second_frame(monkeypatch):
         t["v"] += 0.05
         return t["v"]
 
-    monkeypatch.setattr(eng.time, "time", _time)
+    monkeypatch.setattr(eng.time, "perf_counter", _time)
 
     def _process(_frame, inference_width=None, inference_stride=None):
         calls["n"] += 1
@@ -409,9 +411,10 @@ def test_process_loop_sleeps_to_match_target_fps(monkeypatch):
     engine.source = types.SimpleNamespace(close=lambda: None)
     frame = np.zeros((10, 10, 3), dtype=np.uint8)
 
+    # perf_counter is read multiple times in the loop (start/end/processed-fps).
     # Duration = 0.1s => desired sleep about 0.9s
-    times = iter([0.0, 0.1])
-    monkeypatch.setattr(eng.time, "time", lambda: next(times))
+    times = iter([0.0, 0.1, 0.1])
+    monkeypatch.setattr(eng.time, "perf_counter", lambda: next(times))
 
     slept = {"v": 0.0}
     monkeypatch.setattr(eng.time, "sleep", lambda s: slept.__setitem__("v", float(s)))
@@ -429,6 +432,154 @@ def test_process_loop_sleeps_to_match_target_fps(monkeypatch):
     engine.running = True
     engine._process_loop()
     assert slept["v"] > 0.0
+
+
+def test_process_loop_skips_byte_identical_frames(monkeypatch):
+    engine = _make_engine(monkeypatch, target_fps=0)
+    engine.source = types.SimpleNamespace(close=lambda: None)
+    monkeypatch.setattr(eng.time, "sleep", lambda _s: None)
+
+    frame = np.zeros((10, 10, 3), dtype=np.uint8)
+    # Feed the exact same frame object twice.
+    frames = [frame, frame]
+
+    def _wait(timeout=None):
+        if frames:
+            engine._latest_captured_frame = frames.pop(0)
+            return True
+        engine.running = False
+        return True
+
+    engine._capture_event.wait = _wait  # type: ignore[assignment]
+
+    calls = {"n": 0}
+
+    def _process(_frame, inference_width=None, inference_stride=None):
+        calls["n"] += 1
+        summary = FrameSummary(
+            frame_id=calls["n"], timestamp=1.0, persons=[], density={}, fps=123.0, frame_size=(10, 10)
+        )
+        return summary, _frame
+
+    engine.pipeline = types.SimpleNamespace(process=_process)
+    engine.running = True
+    engine._process_loop()
+    assert calls["n"] == 1
+
+
+def test_process_loop_overrides_payload_fps_with_processed_fps(monkeypatch):
+    engine = _make_engine(monkeypatch, target_fps=0)
+    engine.source = types.SimpleNamespace(close=lambda: None)
+    monkeypatch.setattr(eng.time, "sleep", lambda _s: None)
+
+    frame1 = np.zeros((10, 10, 3), dtype=np.uint8)
+    frame2 = frame1.copy()
+    frame2[0, 0, 0] = 1
+    frames = [frame1, frame2]
+
+    def _wait(timeout=None):
+        if frames:
+            engine._latest_captured_frame = frames.pop(0)
+            return True
+        engine.running = False
+        return True
+
+    engine._capture_event.wait = _wait  # type: ignore[assignment]
+
+    # perf_counter is consulted for start/end/processed-fps.
+    # Use a 1s span across 2 processed frames so windowed fps becomes 1.0.
+    pc_times = iter([0.0, 0.1, 0.2, 1.0, 1.1, 1.2])
+    monkeypatch.setattr(eng.time, "perf_counter", lambda: next(pc_times))
+
+    def _process(_frame, inference_width=None, inference_stride=None):
+        summary = FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=999.0, frame_size=(10, 10)
+        )
+        return summary, _frame
+
+    engine.pipeline = types.SimpleNamespace(process=_process)
+    engine.running = True
+    engine._process_loop()
+    latest = engine.latest_summary()
+    assert latest is not None
+    assert latest.fps == 1.0
+
+
+def test_process_loop_signature_exception_falls_back(monkeypatch):
+    engine = _make_engine(monkeypatch, target_fps=0)
+    engine.source = types.SimpleNamespace(close=lambda: None)
+    monkeypatch.setattr(eng.time, "sleep", lambda _s: None)
+
+    frame = np.zeros((10, 10, 3), dtype=np.uint8)
+
+    def _wait(timeout=None):
+        engine.running = False
+        engine._latest_captured_frame = frame
+        return True
+
+    engine._capture_event.wait = _wait  # type: ignore[assignment]
+
+    def _boom(_frame):
+        raise RuntimeError("sig")
+
+    monkeypatch.setattr(engine, "_frame_signature", _boom)
+
+    called = {"n": 0}
+
+    def _process(_frame, inference_width=None, inference_stride=None):
+        called["n"] += 1
+        summary = FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+        )
+        return summary, _frame
+
+    engine.pipeline = types.SimpleNamespace(process=_process)
+    engine.running = True
+    engine._process_loop()
+    assert called["n"] == 1
+
+
+def test_process_loop_processed_fps_window_prunes_old_samples(monkeypatch):
+    engine = _make_engine(monkeypatch, target_fps=0)
+    engine.source = types.SimpleNamespace(close=lambda: None)
+    monkeypatch.setattr(eng.time, "sleep", lambda _s: None)
+
+    frame1 = np.zeros((10, 10, 3), dtype=np.uint8)
+    frame2 = frame1.copy()
+    frame2[0, 0, 0] = 1
+    frame3 = frame1.copy()
+    frame3[0, 0, 0] = 2
+    frames = [frame1, frame2, frame3]
+
+    def _wait(timeout=None):
+        if frames:
+            engine._latest_captured_frame = frames.pop(0)
+            return True
+        engine.running = False
+        return True
+
+    engine._capture_event.wait = _wait  # type: ignore[assignment]
+
+    # 3 iterations * (start, end, now) = 9 perf_counter calls.
+    # now values for processed window: 0.0, 0.5, 2.0 => should prune older entries.
+    pc_times = iter([
+        0.0, 0.01, 0.0,
+        0.4, 0.41, 0.5,
+        1.9, 1.91, 2.0,
+    ])
+    monkeypatch.setattr(eng.time, "perf_counter", lambda: next(pc_times))
+
+    def _process(_frame, inference_width=None, inference_stride=None):
+        summary = FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+        )
+        return summary, _frame
+
+    engine.pipeline = types.SimpleNamespace(process=_process)
+    engine.running = True
+    engine._process_loop()
+    # Only the most recent sample should remain in the 1s window.
+    assert len(engine._processed_times) == 1
 
 
 def test_async_generators_execute_sleep_lines(monkeypatch):
@@ -531,30 +682,31 @@ def test_encode_loop_imencode_not_ok_and_exception(monkeypatch):
 
 
 def test_encode_loop_updates_stream_fps(monkeypatch):
+    # stream_fps is now "camera fps" (capture timestamps), not encode fps.
     engine = _make_engine(monkeypatch, output_width=None)
     frame = np.zeros((10, 10, 3), dtype=np.uint8)
 
-    # Force the smoothing branch (stream_fps != 0 and last_encoded_at != None)
-    engine._stream_fps = 10.0
-    engine._last_encoded_at = 1.0
+    times = iter([1.0, 2.0])
+    monkeypatch.setattr(eng.time, "perf_counter", lambda: next(times, 2.0))
 
-    monkeypatch.setattr(
-        eng.cv2, "imencode", lambda *_a, **_k: (True, types.SimpleNamespace(tobytes=lambda: b"jpg"))
-    )
-    monkeypatch.setattr(eng.time, "time", lambda: 2.0)
+    class _Src:
+        def __init__(self):
+            self._n = 0
 
-    engine._encode_queue.put_nowait(
-        (
-            frame,
-            FrameSummary(
-                frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
-            ),
-        )
-    )
-    engine._encode_event.set()
+        def read(self):
+            self._n += 1
+            if self._n == 1:
+                return frame
+            if self._n == 2:
+                engine.running = False
+                return frame
+            engine.running = False
+            return None
 
-    # Stop after one iteration.
-    engine._encode_event.wait = lambda timeout=None: (engine.__setattr__("running", False) or True)  # type: ignore[assignment]
+        def close(self):
+            return None
+
+    engine.source = _Src()
     engine.running = True
-    engine._encode_loop()
+    engine._capture_loop()
     assert engine.stream_fps() > 0.0

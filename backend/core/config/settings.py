@@ -29,7 +29,12 @@ if _pydantic_settings is not None:
     BaseSettings = cast(Any, _pydantic_settings.BaseSettings)
     SettingsConfigDict = getattr(_pydantic_settings, "SettingsConfigDict", None)
 else:
-    from pydantic import BaseSettings
+    try:
+        # Pydantic v1
+        from pydantic import BaseSettings
+    except Exception:
+        # Pydantic v2: BaseSettings moved to pydantic.v1 (or pydantic-settings).
+        from pydantic.v1 import BaseSettings
 
     SettingsConfigDict = None
 
@@ -49,6 +54,8 @@ class BackendSettings(BaseSettings):
     confidence: float = 0.35
     grid_size: str = Field("10x10", description="e.g. 8x8")
     smoothing: float = 0.2
+    # Density hotspot region (single densest zone) maximum area fraction.
+    density_hotspot_max_area_fraction: float = 0.25
 
     # Performance settings
     inference_width: int = 640
@@ -173,6 +180,12 @@ class BackendSettings(BaseSettings):
     def _validate_roi_detections_nms_iou(cls, v: float) -> float:
         if not 0.0 <= float(v) <= 1.0:
             raise ValueError("roi_detections_nms_iou must be in [0, 1]")
+        return float(v)
+
+    @_field_validator("density_hotspot_max_area_fraction")
+    def _validate_density_hotspot_max_area_fraction(cls, v: float) -> float:
+        if not 0.0 < float(v) <= 1.0:
+            raise ValueError("density_hotspot_max_area_fraction must be in (0, 1]")
         return float(v)
 
 

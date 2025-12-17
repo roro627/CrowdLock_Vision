@@ -121,6 +121,8 @@ class WebcamSource(OpenCVSource):
         self._running = True
         self._latest_frame = None
         self._latest_ok = False
+        self._latest_seq = 0
+        self._delivered_seq = 0
         self._reader_error: Exception | None = None
         self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
         self._reader_thread.start()
@@ -135,6 +137,7 @@ class WebcamSource(OpenCVSource):
                     with self._lock:
                         self._latest_frame = frame
                         self._latest_ok = True
+                        self._latest_seq += 1
                 else:
                     with self._lock:
                         self._latest_ok = False
@@ -164,6 +167,7 @@ class WebcamSource(OpenCVSource):
         with self._lock:
             frame = self._latest_frame
             ok = self._latest_ok
+            seq = self._latest_seq
             reader_error = self._reader_error
 
         # If the background reader failed (rare, driver-specific), fall back to a synchronous flush/read.
@@ -185,6 +189,10 @@ class WebcamSource(OpenCVSource):
 
         if not ok or frame is None:
             return None
+        # If capture didn't advance since the last successful read, don't resend the same cached frame.
+        if seq == self._delivered_seq:
+            return None
+        self._delivered_seq = seq
         # Return a copy so downstream processing/overlays can't mutate our cached latest frame.
         return frame.copy()
 
@@ -193,7 +201,96 @@ class FileSource(OpenCVSource):
     """Video file source (path to a container/codec supported by OpenCV)."""
 
     def __init__(self, path: str) -> None:
+        self._path = path
+        self._start_perf: float | None = None
+        self._frame_index: int = 0
+        self._source_fps: float | None = None
         super().__init__(path)
+
+        # Try to get FPS from the container. Not all OpenCV backends expose it.
+        fps: float | None = None
+        try:
+            get = getattr(self.cap, "get", None)
+            if callable(get):
+                fps = float(get(cv2.CAP_PROP_FPS))
+        except Exception:
+            fps = None
+        if fps is not None and fps > 0.0:
+            self._source_fps = fps
+
+    def read(self) -> Frame | None:
+        """Read the next frame in real-time; when EOF is reached, rewind and continue."""
+
+        # Lazy-init wall-clock alignment on first successful frame.
+        if self._start_perf is None:
+            self._start_perf = time.perf_counter()
+            self._frame_index = 0
+
+        ok, frame = self.cap.read()
+        if ok:
+            self._frame_index += 1
+            # Pace output to match the file's FPS (play in seconds, not decode-as-fast-as-possible).
+            if self._source_fps and self._source_fps > 0.0 and self._start_perf is not None:
+                expected = self._frame_index / self._source_fps
+                elapsed = time.perf_counter() - self._start_perf
+                delay = expected - elapsed
+                if delay > 0:
+                    time.sleep(delay)
+            return frame
+
+        # EOF / read failure: try to rewind to the beginning.
+        rewound = False
+        try:
+            rewound = bool(self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0))
+        except Exception:
+            rewound = False
+
+        if rewound:
+            self._start_perf = time.perf_counter()
+            self._frame_index = 0
+            ok2, frame2 = self.cap.read()
+            if ok2:
+                self._frame_index = 1
+                if self._source_fps and self._source_fps > 0.0 and self._start_perf is not None:
+                    expected = self._frame_index / self._source_fps
+                    elapsed = time.perf_counter() - self._start_perf
+                    delay = expected - elapsed
+                    if delay > 0:
+                        time.sleep(delay)
+                return frame2
+
+        # Some backends ignore CAP_PROP_POS_FRAMES; fall back to reopen.
+        try:
+            self.cap.release()
+        except Exception:
+            pass
+        self.cap = cv2.VideoCapture(self._path)
+        if not self.cap.isOpened():
+            return None
+
+        # Re-read FPS if backend provides it after reopen.
+        try:
+            get = getattr(self.cap, "get", None)
+            if callable(get):
+                fps = float(get(cv2.CAP_PROP_FPS))
+                if fps > 0.0:
+                    self._source_fps = fps
+        except Exception:
+            pass
+
+        self._start_perf = time.perf_counter()
+        self._frame_index = 0
+        ok3, frame3 = self.cap.read()
+        if not ok3:
+            return None
+        self._frame_index = 1
+        if self._source_fps and self._source_fps > 0.0 and self._start_perf is not None:
+            expected = self._frame_index / self._source_fps
+            elapsed = time.perf_counter() - self._start_perf
+            delay = expected - elapsed
+            if delay > 0:
+                time.sleep(delay)
+        return frame3
 
 
 class RTSPSource(OpenCVSource):

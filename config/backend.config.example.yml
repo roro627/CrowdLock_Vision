@@ -7,6 +7,9 @@ model_task: detect
 confidence: 0.35
 grid_size: 10x10
 smoothing: 0.2
+# Density hotspot (single densest zone) max area fraction.
+# 0.25 => hotspot covers at most 1/4 of the frame area.
+density_hotspot_max_area_fraction: 0.25
 inference_width: 640
 # Run detector every N frames (1 = every frame). Skipped frames reuse last tracks.
 inference_stride: 2

@@ -17,7 +17,7 @@ interface Props {
 /**
  * Draw metadata overlays (boxes, keypoints, density) on the overlay canvas.
  */
-function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: Props): void {
+export function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: Props): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   const { width, height } = canvas;
@@ -33,6 +33,22 @@ function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: 
   const drawH = frameH * scale;
   const offsetX = (width - drawW) / 2;
   const offsetY = (height - drawH) / 2;
+
+  // Density overlay: a single backend-computed hotspot (pixel bbox in frame space).
+  if (options.showDensity && payload.density?.hotspot_bbox) {
+    const [x1, y1, x2, y2] = payload.density.hotspot_bbox;
+    const px1 = offsetX + x1 * scale;
+    const py1 = offsetY + y1 * scale;
+    const pw = (x2 - x1) * scale;
+    const ph = (y2 - y1) * scale;
+
+    // Fill + outline so it's visible over bright footage.
+    ctx.fillStyle = 'rgba(255, 99, 72, 0.25)';
+    ctx.fillRect(px1, py1, pw, ph);
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.95)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px1, py1, pw, ph);
+  }
 
   payload.persons.forEach((p) => {
     const [x1, y1, x2, y2] = p.bbox;
@@ -75,28 +91,6 @@ function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: 
     ctx.font = '12px Inter';
     ctx.fillText(`ID ${p.id}`, offsetX + x1 * scale + 4, Math.max(12, offsetY + y1 * scale - 6));
   });
-
-  if (options.showDensity && payload.density?.cells) {
-    const [gx, gy] = payload.density.grid_size;
-    const cellW = (frameW * scale) / gx;
-    const cellH = (frameH * scale) / gy;
-    const cells = payload.density.cells;
-    const maxVal = Math.max(...cells.flat(), 1);
-    cells.forEach((row, j) => {
-      row.forEach((val, i) => {
-        if (val <= 0) return;
-        const alpha = Math.min(0.6, 0.1 + (val / maxVal) * 0.5);
-        ctx.fillStyle = `rgba(255, 99, 72, ${alpha})`;
-        ctx.fillRect(offsetX + i * cellW, offsetY + j * cellH, cellW, cellH);
-      });
-    });
-    if (payload.density.max_cell) {
-      const [mi, mj] = payload.density.max_cell;
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(offsetX + mi * cellW, offsetY + mj * cellH, cellW, cellH);
-    }
-  }
 }
 
 /**
@@ -392,7 +386,7 @@ export function VideoOverlay({
     if (!currentFrame) return 'Buffering…';
     const streamPart =
       typeof currentFrame.stream_fps === 'number'
-        ? ` / ${currentFrame.stream_fps.toFixed(1)} stream`
+        ? ` / ${currentFrame.stream_fps.toFixed(1)} camera`
         : '';
     const latencyPart =
       typeof currentFrame.latency_ms === 'number'

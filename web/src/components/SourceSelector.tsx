@@ -27,7 +27,31 @@ const defaultCfg: BackendConfig = {
 export function SourceSelector({ onStatus }: Props) {
   const [cfg, setCfg] = useState<BackendConfig>(defaultCfg);
   const [presets, setPresets] = useState<PresetInfo[]>([]);
-  const [presetId, setPresetId] = useState<string>('equilibre');
+  const [presetId, setPresetId] = useState<string>('fps_max');
+
+  const applyPresetFromList = (list: PresetInfo[], id: string): void => {
+    const preset = list.find((p) => p.id === id);
+    if (!preset) return;
+    const s = preset.settings || {};
+    const iw = s['inference_width'];
+    const is = s['inference_stride'];
+    const ow = s['output_width'];
+    const jq = s['jpeg_quality'];
+    const tf = s['target_fps'];
+    const ebo = s['enable_backend_overlays'];
+    setCfg(
+      (c) =>
+        ({
+          ...c,
+          ...(typeof iw === 'number' ? { inference_width: iw } : {}),
+          ...(typeof is === 'number' ? { inference_stride: is } : {}),
+          ...(typeof ow === 'number' || ow === null ? { output_width: ow as number | null } : {}),
+          ...(typeof jq === 'number' ? { jpeg_quality: jq } : {}),
+          ...(typeof tf === 'number' || tf === null ? { target_fps: tf as number | null } : {}),
+          ...(typeof ebo === 'boolean' ? { enable_backend_overlays: ebo } : {}),
+        }) as BackendConfig
+    );
+  };
 
   useEffect(() => {
     api
@@ -39,7 +63,15 @@ export function SourceSelector({ onStatus }: Props) {
   useEffect(() => {
     api
       .getPresets()
-      .then((data) => setPresets(data.presets || []))
+      .then((data) => {
+        const list = data.presets || [];
+        setPresets(list);
+        // Default preset should be FPS max when available.
+        if (list.some((p) => p.id === 'fps_max')) {
+          setPresetId('fps_max');
+          applyPresetFromList(list, 'fps_max');
+        }
+      })
       .catch(() => {
         // Presets are optional; keep UI usable even if endpoint is unavailable.
         setPresets([]);
@@ -65,27 +97,7 @@ export function SourceSelector({ onStatus }: Props) {
   };
 
   const applyPresetLocally = (id: string): void => {
-    const preset = presets.find((p) => p.id === id);
-    if (!preset) return;
-    const s = preset.settings || {};
-    const iw = s['inference_width'];
-    const is = s['inference_stride'];
-    const ow = s['output_width'];
-    const jq = s['jpeg_quality'];
-    const tf = s['target_fps'];
-    const ebo = s['enable_backend_overlays'];
-    setCfg(
-      (c) =>
-        ({
-          ...c,
-          ...(typeof iw === 'number' ? { inference_width: iw } : {}),
-          ...(typeof is === 'number' ? { inference_stride: is } : {}),
-          ...(typeof ow === 'number' || ow === null ? { output_width: ow as number | null } : {}),
-          ...(typeof jq === 'number' ? { jpeg_quality: jq } : {}),
-          ...(typeof tf === 'number' || tf === null ? { target_fps: tf as number | null } : {}),
-          ...(typeof ebo === 'boolean' ? { enable_backend_overlays: ebo } : {}),
-        }) as BackendConfig
-    );
+    applyPresetFromList(presets, id);
   };
 
   return (

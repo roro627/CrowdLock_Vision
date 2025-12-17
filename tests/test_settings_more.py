@@ -73,3 +73,11 @@ def test_config_path_defaults_when_env_missing(monkeypatch: pytest.MonkeyPatch):
 def test_density_from_settings_parses_grid():
     settings = cfg.BackendSettings(grid_size="3x4")
     assert cfg.density_from_settings(settings) == (3, 4)
+
+
+def test_density_hotspot_max_area_fraction_validation():
+    assert cfg.BackendSettings(density_hotspot_max_area_fraction=0.25).density_hotspot_max_area_fraction == 0.25
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(density_hotspot_max_area_fraction=0.0)
+    with pytest.raises(ValueError):
+        cfg.BackendSettings(density_hotspot_max_area_fraction=1.01)
