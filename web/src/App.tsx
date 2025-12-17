@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import VideoOverlay from './components/VideoOverlay';
 import Sidebar from './components/Sidebar';
 import SourceSelector from './components/SourceSelector';
@@ -10,11 +10,16 @@ import './styles/index.css';
 const API_BASE = api.base;
 
 function App() {
-  const wsUrl = useMemo(() => API_BASE.replace('http', 'ws') + '/stream/metadata', [API_BASE]);
+  const wsUrl = API_BASE.replace('http', 'ws') + '/stream/metadata';
   const videoUrl = `${API_BASE}/stream/video`;
   const { latest, status, getById } = useMetadataStream(wsUrl);
   const { stats, error: statsError } = useStats(API_BASE);
-  const [toggles, setToggles] = useState({ showBoxes: true, showHead: true, showBody: true, showDensity: true });
+  const [toggles, setToggles] = useState({
+    showBoxes: true,
+    showHead: true,
+    showBody: true,
+    showDensity: true,
+  });
   const [configStatus, setConfigStatus] = useState<'idle' | 'saving' | 'error' | 'saved'>('idle');
   const [now, setNow] = useState(() => new Date());
 
@@ -60,7 +65,9 @@ function App() {
           <SourceSelector onStatus={setConfigStatus} />
           {configStatus === 'saving' && <p className="text-sm text-slate-400">Updating backend…</p>}
           {configStatus === 'saved' && <p className="text-sm text-accent">Backend updated.</p>}
-          {configStatus === 'error' && <p className="text-sm text-red-400">Failed to update backend.</p>}
+          {configStatus === 'error' && (
+            <p className="text-sm text-red-400">Failed to update backend.</p>
+          )}
         </div>
       </main>
     </div>

@@ -6,9 +6,9 @@ export default {
     extend: {
       colors: {
         accent: '#1dd1a1',
-        accent2: '#ff9f43'
-      }
-    }
+        accent2: '#ff9f43',
+      },
+    },
   },
-  plugins: []
+  plugins: [],
 };

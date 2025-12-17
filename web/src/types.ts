@@ -1,3 +1,4 @@
+/** Shared frontend types for streamed frame metadata and backend stats. */
 export type Point = [number, number];
 
 export interface Person {
@@ -22,7 +23,7 @@ export interface FramePayload {
   fps: number;
   frame_size: [number, number];
   stream_fps?: number;
-  // Client-side diagnostics (derived from WS timing + clock offset estimation)
+  /** Client-side diagnostics derived from WS timing + clock offset estimation. */
   latency_ms?: number;
 }
 

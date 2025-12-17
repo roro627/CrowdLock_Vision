@@ -1,5 +1,6 @@
 import js from '@eslint/js';
 import globals from 'globals';
+import { fileURLToPath } from 'node:url';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import reactPlugin from 'eslint-plugin-react';
@@ -28,7 +29,7 @@ export default [
         sourceType: 'module',
         ecmaFeatures: { jsx: true },
         project: ['./tsconfig.eslint.json'],
-        tsconfigRootDir: new URL('.', import.meta.url).pathname,
+        tsconfigRootDir: fileURLToPath(new URL('.', import.meta.url)),
       },
       globals: {
         ...globals.browser,
@@ -51,7 +52,10 @@ export default [
       // TypeScript covers this better.
       'no-undef': 'off',
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
 
       // React + TS
       'react/prop-types': 'off',

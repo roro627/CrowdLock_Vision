@@ -1,8 +1,7 @@
 import runpy
 import sys
-from pathlib import Path
-
 import time as _time_mod
+from pathlib import Path
 
 import numpy as np
 
@@ -41,7 +40,9 @@ def test_run_benchmark_optimize_false_returns_results(monkeypatch):
     monkeypatch.setattr(bench.time, "time", _make_fake_time(step=0.6))
 
     # generate_synthetic_frame expects width>=50 and height>=100
-    res = bench.run_benchmark(duration_sec=1, resolution=(200, 200), inference_width=32, optimize=False)
+    res = bench.run_benchmark(
+        duration_sec=1, resolution=(200, 200), inference_width=32, optimize=False
+    )
     assert res is not None
     assert res["optimize"] is False
     assert res["resolution"] == [200, 200]
@@ -51,7 +52,11 @@ def test_run_benchmark_optimize_false_returns_results(monkeypatch):
 
 def test_run_benchmark_optimize_true_uses_existing_onnx(monkeypatch):
     monkeypatch.setattr(bench, "VisionPipeline", _FakePipeline)
-    monkeypatch.setattr(bench, "YoloPersonDetector", lambda model_name, task=None: {"model_name": model_name, "task": task})
+    monkeypatch.setattr(
+        bench,
+        "YoloPersonDetector",
+        lambda model_name, task=None: {"model_name": model_name, "task": task},
+    )
 
     monkeypatch.setattr(bench.os.path, "exists", lambda p: True)
 
@@ -68,7 +73,9 @@ def test_run_benchmark_optimize_true_uses_existing_onnx(monkeypatch):
     monkeypatch.setattr(bench, "YOLO", _FakeYOLO)
     monkeypatch.setattr(bench.time, "time", _make_fake_time(step=0.6))
 
-    res = bench.run_benchmark(duration_sec=1, resolution=(200, 200), inference_width=32, optimize=True)
+    res = bench.run_benchmark(
+        duration_sec=1, resolution=(200, 200), inference_width=32, optimize=True
+    )
     assert res is not None
     assert res["optimize"] is True
     assert created["yolo"] == 0
@@ -76,7 +83,11 @@ def test_run_benchmark_optimize_true_uses_existing_onnx(monkeypatch):
 
 def test_run_benchmark_optimize_true_exports_when_missing(monkeypatch):
     monkeypatch.setattr(bench, "VisionPipeline", _FakePipeline)
-    monkeypatch.setattr(bench, "YoloPersonDetector", lambda model_name, task=None: {"model_name": model_name, "task": task})
+    monkeypatch.setattr(
+        bench,
+        "YoloPersonDetector",
+        lambda model_name, task=None: {"model_name": model_name, "task": task},
+    )
 
     monkeypatch.setattr(bench.os.path, "exists", lambda p: False)
 
@@ -94,7 +105,9 @@ def test_run_benchmark_optimize_true_exports_when_missing(monkeypatch):
     monkeypatch.setattr(bench, "YOLO", _FakeYOLO)
     monkeypatch.setattr(bench.time, "time", _make_fake_time(step=0.6))
 
-    res = bench.run_benchmark(duration_sec=1, resolution=(200, 200), inference_width=32, optimize=True)
+    res = bench.run_benchmark(
+        duration_sec=1, resolution=(200, 200), inference_width=32, optimize=True
+    )
     assert res is not None
     assert called["export"] == 1
 
@@ -106,7 +119,9 @@ def test_run_benchmark_pipeline_init_error_writes_trace(monkeypatch, tmp_path):
         raise RuntimeError("init failed")
 
     monkeypatch.setattr(bench, "YoloPersonDetector", _boom)
-    res = bench.run_benchmark(duration_sec=1, resolution=(200, 200), inference_width=32, optimize=False)
+    res = bench.run_benchmark(
+        duration_sec=1, resolution=(200, 200), inference_width=32, optimize=False
+    )
     assert res is None
     assert (tmp_path / "benchmark_error.txt").exists()
 

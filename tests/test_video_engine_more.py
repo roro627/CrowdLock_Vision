@@ -53,7 +53,9 @@ def test_make_source_file_missing_raises(engine: engine_mod.VideoEngine, tmp_pat
         engine._make_source()
 
 
-def test_start_sets_error_when_source_init_fails(engine: engine_mod.VideoEngine, monkeypatch: pytest.MonkeyPatch):
+def test_start_sets_error_when_source_init_fails(
+    engine: engine_mod.VideoEngine, monkeypatch: pytest.MonkeyPatch
+):
     monkeypatch.setattr(engine, "_make_source", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
 
     engine.start()
@@ -61,7 +63,9 @@ def test_start_sets_error_when_source_init_fails(engine: engine_mod.VideoEngine,
     assert engine.last_error == "Failed to initialize video source"
 
 
-def test_encode_loop_downscales_and_sets_latest_frame(engine: engine_mod.VideoEngine, monkeypatch: pytest.MonkeyPatch):
+def test_encode_loop_downscales_and_sets_latest_frame(
+    engine: engine_mod.VideoEngine, monkeypatch: pytest.MonkeyPatch
+):
     called = {"resize": 0}
 
     def _resize(img, size, interpolation=None):

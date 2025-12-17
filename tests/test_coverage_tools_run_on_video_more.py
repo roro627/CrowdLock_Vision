@@ -31,14 +31,26 @@ class _FakeCap:
 
 def test_run_on_video_raises_when_cannot_open(monkeypatch):
     monkeypatch.setattr(rov.cv2, "VideoCapture", lambda *_a, **_k: _FakeCap(opened=False))
-    args = types.SimpleNamespace(input="x", output="out.json", model="m", conf=0.3, grid_size="2x2", smoothing=0.2, inference_width=10, max_frames=0, mock=True)
+    args = types.SimpleNamespace(
+        input="x",
+        output="out.json",
+        model="m",
+        conf=0.3,
+        grid_size="2x2",
+        smoothing=0.2,
+        inference_width=10,
+        max_frames=0,
+        mock=True,
+    )
     with pytest.raises(SystemExit):
         rov.run(args)
 
 
 def test_run_on_video_writes_json(monkeypatch, tmp_path):
     frames = [np.zeros((10, 10, 3), dtype=np.uint8) for _ in range(2)]
-    monkeypatch.setattr(rov.cv2, "VideoCapture", lambda *_a, **_k: _FakeCap(opened=True, frames=frames))
+    monkeypatch.setattr(
+        rov.cv2, "VideoCapture", lambda *_a, **_k: _FakeCap(opened=True, frames=frames)
+    )
 
     monkeypatch.setattr(rov, "_parse_grid", lambda _s: (2, 2))
     monkeypatch.setattr(rov, "DensityConfig", lambda *a, **k: object())
@@ -55,7 +67,17 @@ def test_run_on_video_writes_json(monkeypatch, tmp_path):
     monkeypatch.setattr(rov, "VisionPipeline", _Pipe)
 
     out = tmp_path / "out" / "x.json"
-    args = types.SimpleNamespace(input="x", output=str(out), model="m", conf=0.3, grid_size="2x2", smoothing=0.2, inference_width=10, max_frames=1, mock=True)
+    args = types.SimpleNamespace(
+        input="x",
+        output=str(out),
+        model="m",
+        conf=0.3,
+        grid_size="2x2",
+        smoothing=0.2,
+        inference_width=10,
+        max_frames=1,
+        mock=True,
+    )
     rov.run(args)
 
     assert out.exists()
@@ -65,7 +87,9 @@ def test_run_on_video_writes_json(monkeypatch, tmp_path):
 
 def test_run_on_video_serializes_tracked_persons(monkeypatch, tmp_path):
     frames = [np.zeros((10, 10, 3), dtype=np.uint8)]
-    monkeypatch.setattr(rov.cv2, "VideoCapture", lambda *_a, **_k: _FakeCap(opened=True, frames=frames))
+    monkeypatch.setattr(
+        rov.cv2, "VideoCapture", lambda *_a, **_k: _FakeCap(opened=True, frames=frames)
+    )
     monkeypatch.setattr(rov, "_parse_grid", lambda _s: (2, 2))
     monkeypatch.setattr(rov, "DensityConfig", lambda *a, **k: object())
     monkeypatch.setattr(rov, "SimpleTracker", lambda *a, **k: object())
@@ -115,7 +139,9 @@ def test_run_on_video_serializes_tracked_persons(monkeypatch, tmp_path):
 
 def test_run_on_video_non_mock_uses_yolo_detector(monkeypatch, tmp_path):
     frames = [np.zeros((10, 10, 3), dtype=np.uint8)]
-    monkeypatch.setattr(rov.cv2, "VideoCapture", lambda *_a, **_k: _FakeCap(opened=True, frames=frames))
+    monkeypatch.setattr(
+        rov.cv2, "VideoCapture", lambda *_a, **_k: _FakeCap(opened=True, frames=frames)
+    )
     monkeypatch.setattr(rov, "_parse_grid", lambda _s: (2, 2))
     monkeypatch.setattr(rov, "DensityConfig", lambda *a, **k: object())
     monkeypatch.setattr(rov, "SimpleTracker", lambda *a, **k: object())
@@ -139,7 +165,17 @@ def test_run_on_video_non_mock_uses_yolo_detector(monkeypatch, tmp_path):
     monkeypatch.setattr(rov, "VisionPipeline", _Pipe)
 
     out = tmp_path / "out.json"
-    args = types.SimpleNamespace(input="x", output=str(out), model="m", conf=0.3, grid_size="2x2", smoothing=0.2, inference_width=10, max_frames=1, mock=False)
+    args = types.SimpleNamespace(
+        input="x",
+        output=str(out),
+        model="m",
+        conf=0.3,
+        grid_size="2x2",
+        smoothing=0.2,
+        inference_width=10,
+        max_frames=1,
+        mock=False,
+    )
     rov.run(args)
     assert called["n"] == 1
 
@@ -166,7 +202,16 @@ def test_run_on_video_main_executes(monkeypatch, tmp_path):
 
     monkeypatch.setattr(pipeline_mod, "VisionPipeline", _Pipe)
 
-    argv = ["run_on_video.py", "--input", "x", "--output", "out.json", "--mock", "--max-frames", "1"]
+    argv = [
+        "run_on_video.py",
+        "--input",
+        "x",
+        "--output",
+        "out.json",
+        "--mock",
+        "--max-frames",
+        "1",
+    ]
     monkeypatch.setattr(sys, "argv", argv)
     repo_root = Path(__file__).resolve().parents[1]
     script_path = repo_root / "backend" / "tools" / "run_on_video.py"
@@ -209,14 +254,26 @@ def test_run_on_video_breaks_at_max_frames(monkeypatch, tmp_path):
     monkeypatch.setattr(rov, "VisionPipeline", _Pipe)
 
     out = tmp_path / "out.json"
-    args = types.SimpleNamespace(input="x", output=str(out), model="m", conf=0.3, grid_size="2x2", smoothing=0.2, inference_width=10, max_frames=1, mock=False)
+    args = types.SimpleNamespace(
+        input="x",
+        output=str(out),
+        model="m",
+        conf=0.3,
+        grid_size="2x2",
+        smoothing=0.2,
+        inference_width=10,
+        max_frames=1,
+        mock=False,
+    )
     rov.run(args)
     assert cap.calls == 1
 
 
 def test_run_on_video_breaks_on_end_of_stream(monkeypatch, tmp_path):
     frames = [np.zeros((10, 10, 3), dtype=np.uint8)]
-    monkeypatch.setattr(rov.cv2, "VideoCapture", lambda *_a, **_k: _FakeCap(opened=True, frames=frames))
+    monkeypatch.setattr(
+        rov.cv2, "VideoCapture", lambda *_a, **_k: _FakeCap(opened=True, frames=frames)
+    )
     monkeypatch.setattr(rov, "_parse_grid", lambda _s: (2, 2))
     monkeypatch.setattr(rov, "DensityConfig", lambda *a, **k: object())
     monkeypatch.setattr(rov, "SimpleTracker", lambda *a, **k: object())
@@ -232,5 +289,15 @@ def test_run_on_video_breaks_on_end_of_stream(monkeypatch, tmp_path):
     monkeypatch.setattr(rov, "VisionPipeline", _Pipe)
 
     out = tmp_path / "out.json"
-    args = types.SimpleNamespace(input="x", output=str(out), model="m", conf=0.3, grid_size="2x2", smoothing=0.2, inference_width=10, max_frames=0, mock=False)
+    args = types.SimpleNamespace(
+        input="x",
+        output=str(out),
+        model="m",
+        conf=0.3,
+        grid_size="2x2",
+        smoothing=0.2,
+        inference_width=10,
+        max_frames=0,
+        mock=False,
+    )
     rov.run(args)

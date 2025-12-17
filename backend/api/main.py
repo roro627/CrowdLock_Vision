@@ -1,5 +1,8 @@
+"""FastAPI application entrypoint."""
+
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -10,8 +13,14 @@ from backend.api.routes import config, health, stats, stream
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Application lifespan handler.
+
+    Ensures the background video engine is stopped when the app shuts down.
+    """
+
     from backend.api.services.state import stop_engine
+
     yield
     stop_engine()
 

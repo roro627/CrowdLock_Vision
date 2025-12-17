@@ -1,3 +1,5 @@
+"""CLI: run the vision pipeline on a video and write per-frame summaries to JSON."""
+
 from __future__ import annotations
 
 import argparse
@@ -14,36 +16,42 @@ from backend.core.config.settings import _parse_grid
 from backend.core.detectors.yolo import YoloPersonDetector
 from backend.core.roi import RoiConfig
 from backend.core.trackers.simple_tracker import SimpleTracker
+from backend.core.types import Detection
 
 
 class _DummyDetector:
-    def detect(self, frame):  # pragma: no cover - trivial
+    """Detector stub used for fast smoke runs without model downloads."""
+
+    def detect(self, frame: np.ndarray, **_: object) -> list[Detection]:
+        """Return an empty list for all frames."""
+
+        _ = frame
         return []
 
 
-def _to_jsonable(obj):
+def _to_jsonable(obj: object) -> object:
+    """Convert nested objects (dataclasses, numpy arrays) into JSON-serializable values."""
+
     if is_dataclass(obj):
         return asdict(obj)
     if isinstance(obj, np.ndarray):
         return obj.tolist()
     if isinstance(obj, dict):
         return {str(k): _to_jsonable(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
+    if isinstance(obj, list | tuple):
         return [_to_jsonable(v) for v in obj]
     if hasattr(obj, "__dict__"):
         return {k: _to_jsonable(v) for k, v in vars(obj).items()}
     return obj
 
 
-def run(args):
+def run(args: argparse.Namespace) -> None:
+    """Run the pipeline and write summaries to the output JSON file."""
+
     cap = cv2.VideoCapture(args.input)
     if not cap.isOpened():
         raise SystemExit(f"Cannot open video {args.input}")
-    detector = (
-        _DummyDetector()
-        if args.mock
-        else YoloPersonDetector(args.model, conf=args.conf)
-    )
+    detector = _DummyDetector() if args.mock else YoloPersonDetector(args.model, conf=args.conf)
     tracker = SimpleTracker()
     grid = _parse_grid(args.grid_size)
     roi_config = RoiConfig(
@@ -53,7 +61,9 @@ def run(args):
         merge_iou=float(getattr(args, "roi_merge_iou", 0.20)),
         max_area_fraction=float(getattr(args, "roi_max_area_fraction", 0.70)),
         full_frame_every_n=int(getattr(args, "roi_full_frame_every_n", 15)),
-        force_full_frame_on_track_loss=float(getattr(args, "roi_force_full_frame_on_track_loss", 0.25)),
+        force_full_frame_on_track_loss=float(
+            getattr(args, "roi_force_full_frame_on_track_loss", 0.25)
+        ),
         detections_nms_iou=float(getattr(args, "roi_detections_nms_iou", 0.50)),
     )
     pipeline = VisionPipeline(
@@ -62,7 +72,7 @@ def run(args):
         density_config=DensityConfig(grid_size=grid, smoothing=args.smoothing),
         roi_config=roi_config,
     )
-    outputs = []
+    outputs: list[object] = []
     while True:
         ok, frame = cap.read()
         if not ok:
@@ -90,7 +100,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--inference-width", type=int, default=640, help="Resize width for inference"
     )
-    parser.add_argument("--max-frames", type=int, default=0, help="Limit frames for quick tests")
+    parser.add_argument("--max-frames", type=int, default=0, help="Limit frames for a short run")
     parser.add_argument(
         "--mock", action="store_true", help="Use dummy detector (no model download)"
     )

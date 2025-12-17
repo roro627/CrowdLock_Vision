@@ -1,8 +1,11 @@
+"""Video and metadata streaming endpoints."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import time
+from collections.abc import AsyncGenerator
 from dataclasses import asdict
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -17,11 +20,13 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/stream/video")
-async def stream_video():
-    async def generator():
+async def stream_video() -> StreamingResponse:
+    """Stream MJPEG frames as a multipart response."""
+
+    async def generator() -> AsyncGenerator[bytes, None]:
         engine: VideoEngine = await asyncio.to_thread(get_engine)
 
-        # Tests sometimes inject a fake engine that only implements mjpeg_generator().
+        # Support alternate engine implementations that expose a MJPEG generator.
         if not hasattr(engine, "latest_frame"):
             async for chunk in engine.mjpeg_generator():
                 yield chunk
@@ -41,7 +46,11 @@ async def stream_video():
                 frame, summary = engine.latest_stream_packet()
             else:
                 frame = engine.latest_frame()
-                summary = engine.latest_stream_summary() if hasattr(engine, "latest_stream_summary") else None
+                summary = (
+                    engine.latest_stream_summary()
+                    if hasattr(engine, "latest_stream_summary")
+                    else None
+                )
 
             frame_id = int(summary.frame_id) if summary is not None else None
             if frame is not None and (frame != last_sent or frame_id != last_sent_id):
@@ -68,25 +77,33 @@ async def stream_video():
 
 
 @router.websocket("/stream/metadata")
-async def stream_metadata(ws: WebSocket):
+async def stream_metadata(ws: WebSocket) -> None:
+    """Stream per-frame JSON metadata over WebSocket."""
+
     await ws.accept()
     engine: VideoEngine = await asyncio.to_thread(get_engine)
 
     def _is_closed_send_error(exc: BaseException) -> bool:
-        # Uvicorn raises this when an ASGI websocket.send happens after close.
+        """Detect send-after-close errors raised by the ASGI server."""
+
         if not isinstance(exc, RuntimeError):
             return False
         msg = str(exc)
-        return "Unexpected ASGI message 'websocket.send'" in msg or "response already completed" in msg
+        return (
+            "Unexpected ASGI message 'websocket.send'" in msg or "response already completed" in msg
+        )
 
     async def _poll_and_handle_ping() -> None:
-        # Avoid concurrent send() calls: this is called from the main loop.
-        # Only real Starlette WebSocket instances have receive_json().
+        """Optionally handle client ping messages.
+
+        This runs on the main loop to avoid concurrent `ws.send_*()` calls.
+        """
+
         if not hasattr(ws, "receive_json"):
             return
         try:
             msg = await asyncio.wait_for(ws.receive_json(), timeout=0.001)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return
         except WebSocketDisconnect:
             raise
@@ -102,10 +119,10 @@ async def stream_metadata(ws: WebSocket):
             await ws.send_json({"type": "pong", "t": msg.get("t"), "server_time": time.time()})
         except Exception as e:
             if _is_closed_send_error(e) or isinstance(e, WebSocketDisconnect):
-                raise WebSocketDisconnect()
+                raise WebSocketDisconnect() from e
             return
 
-    # Tests sometimes inject a fake engine that only implements metadata_stream().
+    # Support alternate engine implementations that expose a metadata async generator.
     if not hasattr(engine, "latest_summary"):
         try:
             async for summary in engine.metadata_stream():

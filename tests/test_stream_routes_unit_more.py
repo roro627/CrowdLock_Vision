@@ -59,7 +59,9 @@ def test_stream_metadata_inner_send_failure_is_caught(monkeypatch: pytest.Monkey
     assert ws.sent == []
 
 
-def test_stream_metadata_engine_crash_closes_ws_even_if_close_fails(monkeypatch: pytest.MonkeyPatch):
+def test_stream_metadata_engine_crash_closes_ws_even_if_close_fails(
+    monkeypatch: pytest.MonkeyPatch,
+):
     class Engine:
         def stream_fps(self):
             return 0.0

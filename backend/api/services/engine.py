@@ -4,11 +4,12 @@ import asyncio
 import logging
 import threading
 import time
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any
-from queue import Queue, Empty
+from queue import Empty, Queue
 
 import cv2
+import numpy as np
 
 from backend.core.analytics.density import DensityConfig
 from backend.core.analytics.pipeline import VisionPipeline
@@ -24,7 +25,15 @@ logger = logging.getLogger(__name__)
 
 
 class VideoEngine:
-    def __init__(self, settings: BackendSettings):
+    """Runs the capture → process → encode pipeline.
+
+    The engine is designed for low-latency streaming:
+    - capture thread continuously reads frames
+    - process thread runs `VisionPipeline.process()` and draws overlays (optional)
+    - encode thread JPEG-encodes frames and drops old frames under load
+    """
+
+    def __init__(self, settings: BackendSettings) -> None:
         self.settings = settings
         gx, gy = density_from_settings(settings)
         self.pipeline = VisionPipeline(
@@ -61,18 +70,20 @@ class VideoEngine:
         self._process_thread: threading.Thread | None = None
         self._encode_thread: threading.Thread | None = None
         self._lock = threading.Lock()
-        self._latest_frame = None
+        self._latest_frame: bytes | None = None
         self._latest_summary: FrameSummary | None = None
         self._latest_stream_summary: FrameSummary | None = None
         self._latest_stream_packet: tuple[bytes, FrameSummary] | None = None
         self._capture_lock = threading.Lock()
         self._capture_event = threading.Event()
-        self._latest_captured_frame: Any | None = None
-        self._encode_queue: Queue[tuple[Any, FrameSummary]] = Queue(maxsize=1)
+        self._latest_captured_frame: np.ndarray | None = None
+        self._encode_queue: Queue[tuple[np.ndarray, FrameSummary]] = Queue(maxsize=1)
         self._encode_event = threading.Event()
         self.last_error: str | None = None
 
     def _make_source(self) -> VideoSource:
+        """Instantiate the configured `VideoSource`."""
+
         if self.settings.video_source == "file" and self.settings.video_path:
             video_path = Path(self.settings.video_path)
             if not video_path.exists():
@@ -82,7 +93,12 @@ class VideoEngine:
             return RTSPSource(self.settings.rtsp_url)
         return WebcamSource(0)
 
-    def start(self):
+    def start(self) -> None:
+        """Start background threads.
+
+        Safe to call multiple times; subsequent calls while running are ignored.
+        """
+
         if self.running:
             return
         try:
@@ -102,7 +118,9 @@ class VideoEngine:
         self._process_thread.start()
         self._encode_thread.start()
 
-    def stop(self):
+    def stop(self) -> None:
+        """Stop background threads and close the video source."""
+
         self.running = False
         self._capture_event.set()
         self._encode_event.set()
@@ -115,7 +133,9 @@ class VideoEngine:
         if self.source:
             self.source.close()
 
-    def _capture_loop(self):
+    def _capture_loop(self) -> None:
+        """Continuously read frames from the configured source."""
+
         logger.debug("Capture loop started")
         while self.running and self.source:
             frame = self.source.read()
@@ -126,7 +146,9 @@ class VideoEngine:
                 self._latest_captured_frame = frame
             self._capture_event.set()
 
-    def _process_loop(self):
+    def _process_loop(self) -> None:
+        """Run the vision pipeline on captured frames and enqueue frames for encoding."""
+
         logger.debug("Process loop started")
         while self.running:
             if not self._capture_event.wait(timeout=0.5):
@@ -164,8 +186,6 @@ class VideoEngine:
             else:
                 annotated = processed_frame
 
-            # Hand off encoding to a separate thread. If the queue is full, drop the older frame
-            # to keep latency low.
             try:
                 if self._encode_queue.full():
                     try:
@@ -183,7 +203,9 @@ class VideoEngine:
         if self.source:
             self.source.close()
 
-    def _encode_loop(self):
+    def _encode_loop(self) -> None:
+        """JPEG-encode processed frames, dropping old frames under load."""
+
         logger.debug("Encode loop started")
         while self.running:
             if not self._encode_event.wait(timeout=0.5):
@@ -193,7 +215,6 @@ class VideoEngine:
             except Empty:
                 self._encode_event.clear()
                 continue
-            # If queue is drained, clear the event.
             if self._encode_queue.empty():
                 self._encode_event.clear()
 
@@ -208,7 +229,9 @@ class VideoEngine:
                         annotated = cv2.resize(
                             # INTER_AREA looks a bit nicer for downscale but is slower.
                             # For live MJPEG streaming, prefer throughput.
-                            annotated, (out_w, out_h), interpolation=cv2.INTER_LINEAR
+                            annotated,
+                            (out_w, out_h),
+                            interpolation=cv2.INTER_LINEAR,
                         )
 
                 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), self.settings.jpeg_quality]
@@ -224,30 +247,40 @@ class VideoEngine:
                             self._stream_fps = (
                                 instant
                                 if self._stream_fps == 0.0
-                                else (self._stream_fps * (1.0 - self._encode_alpha) + instant * self._encode_alpha)
+                                else (
+                                    self._stream_fps * (1.0 - self._encode_alpha)
+                                    + instant * self._encode_alpha
+                                )
                             )
                     self._last_encoded_at = now
                     frame_bytes = jpg.tobytes()
                     self._latest_frame = frame_bytes
-                    # Keep a summary aligned with the encoded frame for smoother client overlays.
                     self._latest_stream_summary = _summary
                     self._latest_stream_packet = (frame_bytes, _summary)
             except Exception:
                 logger.exception("JPEG encoding failed")
 
-    def latest_frame(self):
+    def latest_frame(self) -> bytes | None:
+        """Return the latest encoded JPEG bytes (or `None` if not ready)."""
+
         with self._lock:
             return self._latest_frame
 
     def latest_summary(self) -> FrameSummary | None:
+        """Return the latest processed summary (not necessarily aligned to JPEG)."""
+
         with self._lock:
             return self._latest_summary
 
     def latest_stream_summary(self) -> FrameSummary | None:
+        """Return the summary aligned with the latest encoded frame (best for overlays)."""
+
         with self._lock:
             return self._latest_stream_summary
 
     def latest_stream_packet(self) -> tuple[bytes | None, FrameSummary | None]:
+        """Return (jpeg_bytes, summary) aligned to the same frame."""
+
         with self._lock:
             if self._latest_stream_packet is None:
                 return None, None
@@ -255,10 +288,14 @@ class VideoEngine:
             return frame, summary
 
     def stream_fps(self) -> float:
+        """Approximate outgoing MJPEG frame rate based on encode timestamps."""
+
         with self._lock:
             return float(self._stream_fps)
 
-    async def mjpeg_generator(self):
+    async def mjpeg_generator(self) -> AsyncGenerator[bytes, None]:
+        """Yield MJPEG multipart chunks for HTTP streaming."""
+
         last_sent = None
         while True:
             frame = self.latest_frame()
@@ -267,7 +304,9 @@ class VideoEngine:
                 last_sent = frame
             await asyncio.sleep(0.02)
 
-    async def metadata_stream(self):
+    async def metadata_stream(self) -> AsyncGenerator[FrameSummary, None]:
+        """Yield per-frame summaries for WebSocket streaming."""
+
         last_id = -1
         while True:
             summary = self.latest_summary()

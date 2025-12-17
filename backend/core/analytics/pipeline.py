@@ -1,8 +1,14 @@
+"""Vision pipeline orchestration.
+
+This module ties together detection, tracking, ROI optimization, and density
+updates into a single per-frame processing pipeline.
+"""
+
 from __future__ import annotations
 
 import time
+from typing import Any, Protocol
 
-import cv2
 import numpy as np
 
 from backend.core.analytics.density import DensityConfig, DensityMap
@@ -24,16 +30,39 @@ from backend.core.trackers.simple_tracker import SimpleTracker
 from backend.core.types import Detection, FrameSummary, TrackedPerson
 
 
+class PersonDetector(Protocol):
+    """Minimal detector interface expected by `VisionPipeline`.
+
+    Implementations may accept additional keyword arguments (e.g. `imgsz`).
+    """
+
+    def detect(self, frame: np.ndarray, **kwargs: Any) -> list[Detection]:
+        """Return person detections in full-frame coordinates."""
+
+
 class VisionPipeline:
+    """End-to-end per-frame vision processing.
+
+    Responsibilities:
+    - run the detector (optionally on ROI mosaics)
+    - update the tracker to produce stable IDs and target points
+    - update the density map
+
+    The pipeline is CPU-oriented and can skip inference on some frames via
+    `inference_stride` to improve throughput.
+    """
+
     def __init__(
         self,
-        detector: YoloPersonDetector | None = None,
+        detector: PersonDetector | None = None,
         tracker: SimpleTracker | None = None,
         density_config: DensityConfig | None = None,
         frame_size: tuple[int, int] | None = None,
         roi_config: RoiConfig | None = None,
-    ):
-        self.detector = detector or YoloPersonDetector()
+    ) -> None:
+        """Create a pipeline with optional injected components."""
+
+        self.detector: PersonDetector = detector or YoloPersonDetector()
         self.tracker = tracker or SimpleTracker()
         self.density_config = density_config or DensityConfig()
         self.frame_size = frame_size
@@ -50,9 +79,11 @@ class VisionPipeline:
         self._prev_infer_bboxes_by_id: dict[int, tuple[float, float, float, float]] = {}
 
     def _detect_full_frame(self, frame: np.ndarray, imgsz: int | None) -> list[Detection]:
+        """Run detector on the full frame, optionally providing `imgsz` when supported."""
+
         if imgsz is not None and self._supports_imgsz():
-            return self.detector.detect(frame, imgsz=imgsz)  # type: ignore[call-arg]
-        return self.detector.detect(frame)  # type: ignore[call-arg]
+            return self.detector.detect(frame, imgsz=imgsz)
+        return self.detector.detect(frame)
 
     def _detect_with_rois(
         self,
@@ -63,6 +94,12 @@ class VisionPipeline:
         profile: bool,
         timings: dict[str, float],
     ) -> tuple[list[Detection], bool]:
+        """Run detector using tracker-driven ROIs when beneficial.
+
+        Returns (detections, used_roi). When ROI inference would be too expensive
+        (e.g. mosaic area too large), this falls back to full-frame inference.
+        """
+
         h, w = frame.shape[:2]
         cfg = self.roi_config
 
@@ -140,19 +177,23 @@ class VisionPipeline:
         return dets, True
 
     def _supports_imgsz(self) -> bool:
+        """Return whether the injected detector supports an `imgsz` argument."""
+
         if self._detector_supports_imgsz is not None:
             return self._detector_supports_imgsz
 
         try:
             import inspect
 
-            sig = inspect.signature(self.detector.detect)  # type: ignore[attr-defined]
+            sig = inspect.signature(self.detector.detect)
             self._detector_supports_imgsz = "imgsz" in sig.parameters
         except Exception:
             self._detector_supports_imgsz = False
         return self._detector_supports_imgsz
 
-    def _ensure_density(self, frame: np.ndarray):
+    def _ensure_density(self, frame: np.ndarray) -> None:
+        """Lazy-initialize the density map based on the first frame's shape."""
+
         if self.density_map is None:
             h, w = frame.shape[:2]
             self.density_map = DensityMap((h, w), self.density_config)
@@ -164,6 +205,8 @@ class VisionPipeline:
         inference_stride: int,
         profile: bool,
     ) -> tuple[FrameSummary, np.ndarray, dict[str, float]]:
+        """Process one frame and return (summary, annotated_frame, timings)."""
+
         timings: dict[str, float] = {}
         t_all0 = time.perf_counter()
 
@@ -189,9 +232,8 @@ class VisionPipeline:
             detections: list[Detection]
             used_roi = False
             if self.roi_config.enabled:
-                periodic_full = (
-                    self.roi_config.full_frame_every_n > 0
-                    and (self._infer_calls % self.roi_config.full_frame_every_n == 0)
+                periodic_full = self.roi_config.full_frame_every_n > 0 and (
+                    self._infer_calls % self.roi_config.full_frame_every_n == 0
                 )
                 force_full = self._force_full_frame_next or periodic_full or not self._last_persons
                 if force_full:
@@ -276,9 +318,7 @@ class VisionPipeline:
             instant_fps = 1.0 / dt
             alpha = 0.1
             self._fps = (
-                instant_fps
-                if self._fps == 0
-                else (self._fps * (1.0 - alpha) + instant_fps * alpha)
+                instant_fps if self._fps == 0 else (self._fps * (1.0 - alpha) + instant_fps * alpha)
             )
         self._last_time = now
 
@@ -302,6 +342,15 @@ class VisionPipeline:
         inference_width: int | None = None,
         inference_stride: int = 1,
     ) -> tuple[FrameSummary, np.ndarray]:
+        """Process a frame and return (summary, output_frame).
+
+        Args:
+            frame: Input frame.
+            inference_width: Optional inference size hint passed to the detector.
+            inference_stride: Run inference every N frames (skipped frames reuse
+                the last tracked persons and density state).
+        """
+
         summary, out_frame, _timings = self._process_internal(
             frame,
             inference_width=inference_width,
@@ -316,6 +365,12 @@ class VisionPipeline:
         inference_width: int | None = None,
         inference_stride: int = 1,
     ) -> tuple[FrameSummary, np.ndarray, dict[str, float]]:
+        """Process a frame and return (summary, output_frame, timings).
+
+        The `timings` dict contains stage durations in milliseconds and can be
+        used by the benchmark/CLI tooling.
+        """
+
         return self._process_internal(
             frame,
             inference_width=inference_width,

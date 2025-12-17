@@ -15,9 +15,15 @@ const defaultCfg: BackendConfig = {
   smoothing: 0.2,
   inference_width: 640,
   jpeg_quality: 70,
-  enable_backend_overlays: false
+  enable_backend_overlays: false,
 };
 
+/**
+ * Configuration form that reads/writes backend settings via the REST API.
+ *
+ * This is intentionally minimal: it only edits the most common settings
+ * needed to get a stream running.
+ */
 export function SourceSelector({ onStatus }: Props) {
   const [cfg, setCfg] = useState<BackendConfig>(defaultCfg);
   const [presets, setPresets] = useState<PresetInfo[]>([]);
@@ -40,23 +46,25 @@ export function SourceSelector({ onStatus }: Props) {
       });
   }, []);
 
-  const handleChange = (key: keyof BackendConfig, value: string | number | boolean | null) => {
-    setCfg((c) => ({ ...c, [key]: value } as BackendConfig));
+  const handleChange = (
+    key: keyof BackendConfig,
+    value: string | number | boolean | null
+  ): void => {
+    setCfg((c) => ({ ...c, [key]: value }) as BackendConfig);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     onStatus('saving');
     try {
       await api.updateConfig(cfg);
       onStatus('saved');
-    } catch (err) {
-      console.error(err);
+    } catch {
       onStatus('error');
     }
   };
 
-  const applyPresetLocally = (id: string) => {
+  const applyPresetLocally = (id: string): void => {
     const preset = presets.find((p) => p.id === id);
     if (!preset) return;
     const s = preset.settings || {};
@@ -66,15 +74,18 @@ export function SourceSelector({ onStatus }: Props) {
     const jq = s['jpeg_quality'];
     const tf = s['target_fps'];
     const ebo = s['enable_backend_overlays'];
-    setCfg((c) => ({
-      ...c,
-      ...(typeof iw === 'number' ? { inference_width: iw } : {}),
-      ...(typeof is === 'number' ? { inference_stride: is } : {}),
-      ...(typeof ow === 'number' || ow === null ? { output_width: ow as number | null } : {}),
-      ...(typeof jq === 'number' ? { jpeg_quality: jq } : {}),
-      ...(typeof tf === 'number' || tf === null ? { target_fps: tf as number | null } : {}),
-      ...(typeof ebo === 'boolean' ? { enable_backend_overlays: ebo } : {})
-    } as BackendConfig));
+    setCfg(
+      (c) =>
+        ({
+          ...c,
+          ...(typeof iw === 'number' ? { inference_width: iw } : {}),
+          ...(typeof is === 'number' ? { inference_stride: is } : {}),
+          ...(typeof ow === 'number' || ow === null ? { output_width: ow as number | null } : {}),
+          ...(typeof jq === 'number' ? { jpeg_quality: jq } : {}),
+          ...(typeof tf === 'number' || tf === null ? { target_fps: tf as number | null } : {}),
+          ...(typeof ebo === 'boolean' ? { enable_backend_overlays: ebo } : {}),
+        }) as BackendConfig
+    );
   };
 
   return (
@@ -84,7 +95,9 @@ export function SourceSelector({ onStatus }: Props) {
           <p className="text-xs uppercase tracking-wide text-slate-400">Source</p>
           <p className="text-lg font-semibold">Video Input</p>
         </div>
-        <button type="submit" className="button-primary">Apply</button>
+        <button type="submit" className="button-primary">
+          Apply
+        </button>
       </div>
 
       {presets.length > 0 && (

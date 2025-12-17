@@ -1,7 +1,15 @@
+"""Ultralytics YOLO detector integration.
+
+This module intentionally keeps Torch as an optional runtime dependency: ONNX
+exports can run without importing torch.
+"""
+
 from __future__ import annotations
 
-from contextlib import nullcontext
+import importlib
 import os
+from contextlib import nullcontext
+from typing import Any
 
 import numpy as np
 from ultralytics import YOLO
@@ -10,6 +18,13 @@ from backend.core.types import Detection
 
 
 class YoloPersonDetector:
+    """Person detector wrapper around Ultralytics YOLO.
+
+    Supports both Torch `.pt` models and ONNX exports. The detector is CPU-only by
+    default and can optionally be tuned via env vars (`CLV_TORCH_THREADS`,
+    `CLV_TORCH_INTEROP_THREADS`).
+    """
+
     _torch_threads_configured: bool = False
 
     def __init__(
@@ -18,6 +33,15 @@ class YoloPersonDetector:
         conf: float = 0.3,
         task: str | None = None,
     ):
+        """Create a detector.
+
+        Args:
+            model_name: Model path/name understood by Ultralytics (e.g. `yolov8n.pt`,
+                `yolov8n-pose.pt`, or an `.onnx` export).
+            conf: Confidence threshold applied inside the Ultralytics predictor.
+            task: Optional Ultralytics task override.
+        """
+
         # Optional CPU tuning. This is intentionally env-driven so production
         # deployments can choose the best value per machine without code changes.
         # Defaults are left untouched unless explicitly configured.
@@ -56,6 +80,8 @@ class YoloPersonDetector:
 
     @classmethod
     def _configure_torch_threads_from_env(cls) -> None:
+        """Configure torch thread counts from environment variables (one-time)."""
+
         if cls._torch_threads_configured:
             return
         cls._torch_threads_configured = True
@@ -66,7 +92,7 @@ class YoloPersonDetector:
             return
 
         try:
-            import torch  # type: ignore
+            torch = importlib.import_module("torch")
 
             if threads_s is not None and threads_s.strip():
                 torch.set_num_threads(max(1, int(threads_s)))
@@ -76,7 +102,18 @@ class YoloPersonDetector:
             # If torch isn't present or refuses changes, ignore.
             return
 
-    def detect(self, frame, imgsz: int | None = None) -> list[Detection]:
+    def detect(self, frame: np.ndarray, imgsz: int | None = None) -> list[Detection]:
+        """Run inference on a single frame and return person detections.
+
+        Args:
+            frame: Input image as a numpy array in OpenCV format.
+            imgsz: Optional Ultralytics inference size. When provided, it is used
+                only as a *downscale* hint to reduce CPU work (never to upscale).
+
+        Returns:
+            A list of `Detection` objects in full-frame pixel coordinates.
+        """
+
         kwargs = self._base_predict_kwargs
         if imgsz:
             # Ultralytics expects `imgsz` to drive its internal letterboxing.
@@ -86,10 +123,9 @@ class YoloPersonDetector:
         # Ultralytics already uses no-grad internally in most cases, but being explicit
         # avoids surprises and keeps CPU execution lean.
         try:
-            import torch  # type: ignore
-
+            torch: Any = importlib.import_module("torch")
             infer_ctx = torch.inference_mode() if not self.is_onnx else nullcontext()
-        except Exception:  # pragma: no cover - torch might not be installed in some envs
+        except Exception:
             infer_ctx = nullcontext()
 
         with infer_ctx:
@@ -140,7 +176,7 @@ class YoloPersonDetector:
         out: list[Detection] = []
         if kpts_np is None:
             # Iterate numpy rows directly to avoid large intermediate Python lists.
-            for bbox, conf_v in zip(xyxy_np, confs_np):
+            for bbox, conf_v in zip(xyxy_np, confs_np, strict=False):
                 out.append(
                     Detection(
                         bbox=(
@@ -156,7 +192,7 @@ class YoloPersonDetector:
             return out
 
         # Pose model: attach per-detection keypoints.
-        for i, (bbox, conf_v) in enumerate(zip(xyxy_np, confs_np)):
+        for i, (bbox, conf_v) in enumerate(zip(xyxy_np, confs_np, strict=False)):
             kp = kpts_np[i] if i < int(kpts_np.shape[0]) else None
             out.append(
                 Detection(

@@ -1,24 +1,42 @@
+"""Backend configuration.
+
+Settings are loaded from YAML defaults and overridden by environment variables
+prefixed with `CLV_`.
+"""
+
 from __future__ import annotations
 
+import importlib
 import os
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, cast
 
+import pydantic
 import yaml
 from pydantic import Field
 
-try:  # Pydantic v2
-    from pydantic import field_validator as _field_validator
-except Exception:  # pragma: no cover - Pydantic v1
-    from pydantic import validator as _field_validator  # type: ignore
+_field_validator: Callable[..., Any] = (
+    getattr(pydantic, "field_validator", None) or pydantic.validator
+)
 
-try:  # Pydantic v2
-    from pydantic_settings import BaseSettings, SettingsConfigDict
-except ModuleNotFoundError:  # pragma: no cover - fallback for v1 envs
-    from pydantic import BaseSettings  # type: ignore[attr-defined]
-    SettingsConfigDict = None  # type: ignore[assignment]
+try:
+    _pydantic_settings = importlib.import_module("pydantic_settings")
+except ModuleNotFoundError:
+    _pydantic_settings = None
+
+if _pydantic_settings is not None:
+    BaseSettings = cast(Any, _pydantic_settings.BaseSettings)
+    SettingsConfigDict = getattr(_pydantic_settings, "SettingsConfigDict", None)
+else:
+    from pydantic import BaseSettings
+
+    SettingsConfigDict = None
 
 
 class BackendSettings(BaseSettings):
+    """Runtime configuration loaded from YAML defaults and `CLV_` env overrides."""
+
     video_source: str = Field("file", description="webcam|file|rtsp")
     video_path: str | None = None
     rtsp_url: str | None = None
@@ -57,9 +75,10 @@ class BackendSettings(BaseSettings):
     enable_backend_overlays: bool = False
 
     # Pydantic v2 uses model_config; Pydantic v1 uses inner Config.
-    if SettingsConfigDict is not None:  # pragma: no cover - depends on env
+    if SettingsConfigDict is not None:
         model_config = SettingsConfigDict(env_prefix="CLV_", validate_assignment=True)
-    else:  # pragma: no cover - v1 only
+    else:
+
         class Config:
             env_prefix = "CLV_"
             validate_assignment = True
@@ -157,14 +176,17 @@ class BackendSettings(BaseSettings):
         return float(v)
 
 
-def settings_to_dict(settings: BackendSettings) -> dict:
-    # Pydantic v2: model_dump(); v1: dict().
+def settings_to_dict(settings: BackendSettings) -> dict[str, Any]:
+    """Convert settings to a plain dict (supports Pydantic v1 and v2)."""
+
     if hasattr(settings, "model_dump"):
-        return settings.model_dump()  # type: ignore[no-any-return]
-    return settings.dict()
+        return cast(dict[str, Any], settings.model_dump())
+    return cast(dict[str, Any], settings.dict())
 
 
-def _fields_set(obj) -> set[str]:
+def _fields_set(obj: object) -> set[str]:
+    """Return the set of fields explicitly provided/overridden on a Pydantic model."""
+
     fields_set = getattr(obj, "model_fields_set", None)
     if fields_set is not None:
         return set(fields_set)
@@ -172,6 +194,8 @@ def _fields_set(obj) -> set[str]:
 
 
 def _parse_grid(grid: str) -> tuple[int, int]:
+    """Parse a grid spec like "10x10" into (cols, rows)."""
+
     if "x" not in grid:
         raise ValueError("grid_size must be formatted as <cols>x<rows>, e.g., 10x10")
     gx, gy = grid.lower().split("x")
@@ -182,24 +206,33 @@ def _parse_grid(grid: str) -> tuple[int, int]:
 
 
 def _config_path() -> Path:
+    """Return the YAML configuration path (defaults to config/backend.config.yml)."""
+
     return Path(os.getenv("CLV_CONFIG", "config/backend.config.yml"))
 
 
 def load_settings() -> BackendSettings:
-    data: dict = {}
+    """Load settings from YAML and environment variables.
+
+    YAML provides defaults; environment variables override.
+    """
+
+    data: dict[str, Any] = {}
     path = _config_path()
     if path.exists():
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
 
-    # BaseSettings gives init kwargs higher priority than environment variables.
-    # We want the opposite here: YAML provides defaults and env vars override.
     env_settings = BackendSettings()
-    env_overrides = {name: getattr(env_settings, name) for name in _fields_set(env_settings)}
+    env_overrides: dict[str, Any] = {
+        name: getattr(env_settings, name) for name in _fields_set(env_settings)
+    }
 
     merged = {**data, **env_overrides}
     return BackendSettings(**merged)
 
 
 def density_from_settings(settings: BackendSettings) -> tuple[int, int]:
+    """Return (grid_x, grid_y) parsed from `settings.grid_size`."""
+
     return _parse_grid(settings.grid_size)

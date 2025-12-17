@@ -1,3 +1,9 @@
+"""In-process state for settings and the video engine.
+
+FastAPI routes use this module to access (and hot-reload) the singleton
+`VideoEngine` instance.
+"""
+
 from __future__ import annotations
 
 from threading import RLock
@@ -11,6 +17,8 @@ _lock = RLock()
 
 
 def get_settings() -> BackendSettings:
+    """Return cached settings, loading them on first use."""
+
     global _settings
     with _lock:
         if _settings is None:
@@ -19,6 +27,12 @@ def get_settings() -> BackendSettings:
 
 
 def reload_settings(data: dict | None = None) -> BackendSettings:
+    """Reload settings and restart the engine if it is running.
+
+    Args:
+        data: Optional patch dict merged into the loaded settings.
+    """
+
     global _settings, _engine
     with _lock:
         base = load_settings()
@@ -27,7 +41,6 @@ def reload_settings(data: dict | None = None) -> BackendSettings:
         else:
             _settings = base
         if _engine:
-            # Recreate engine with new settings
             _engine.stop()
             _engine = VideoEngine(_settings)
             _engine.start()
@@ -35,6 +48,8 @@ def reload_settings(data: dict | None = None) -> BackendSettings:
 
 
 def get_engine() -> VideoEngine:
+    """Return the singleton engine instance, creating and starting it if needed."""
+
     global _engine
     with _lock:
         if _engine is None:
@@ -44,6 +59,8 @@ def get_engine() -> VideoEngine:
 
 
 def stop_engine() -> None:
+    """Stop and discard the singleton engine instance (if present)."""
+
     global _engine
     with _lock:
         if _engine is not None:

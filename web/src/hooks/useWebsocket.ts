@@ -4,6 +4,9 @@ import type { FramePayload } from '../types';
 const WS_MIN_BACKOFF = 500;
 const WS_MAX_BACKOFF = 8000;
 
+/**
+ * Normalize an HTTP(S) URL into a WS(S) URL.
+ */
 function normalizeUrl(raw: string): string {
   if (raw.startsWith('ws')) return raw;
   if (raw.startsWith('https://')) return raw.replace('https://', 'wss://');
@@ -11,6 +14,10 @@ function normalizeUrl(raw: string): string {
   return raw;
 }
 
+/**
+ * Subscribe to the backend metadata WebSocket and keep a bounded in-memory
+ * lookup by `frame_id` for aligning overlays.
+ */
 export function useMetadataStream(url: string) {
   const [latest, setLatest] = useState<FramePayload | null>(null);
   const [status, setStatus] = useState<'connecting' | 'open' | 'closed'>('connecting');
@@ -52,7 +59,7 @@ export function useMetadataStream(url: string) {
           try {
             ws.send(JSON.stringify({ type: 'ping', t: Date.now() / 1000 }));
           } catch {
-            // ignore
+            // Intentionally ignore send errors during teardown/reconnect.
           }
         };
 
@@ -71,7 +78,8 @@ export function useMetadataStream(url: string) {
           const maybeAny = msg as Record<string, unknown>;
           if (maybeAny.type === 'pong') {
             const t1 = typeof maybeAny.t === 'number' ? maybeAny.t : null;
-            const serverTime = typeof maybeAny.server_time === 'number' ? maybeAny.server_time : null;
+            const serverTime =
+              typeof maybeAny.server_time === 'number' ? maybeAny.server_time : null;
             if (t1 !== null && serverTime !== null) {
               const t4 = Date.now() / 1000;
               const rtt = Math.max(0, t4 - t1);
@@ -99,7 +107,8 @@ export function useMetadataStream(url: string) {
           }
           setLatest(payload);
         } catch (e) {
-          console.error('Failed to parse message', e);
+          // Ignore malformed messages to keep the stream resilient.
+          void e;
         }
       };
     };

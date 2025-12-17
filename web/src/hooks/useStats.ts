@@ -3,7 +3,12 @@ import type { StatsPayload } from '../types';
 
 const POLL_MS = 2000;
 
-export function useStats(apiBase: string) {
+/**
+ * Poll the backend `/stats` endpoint on an interval.
+ *
+ * Returns the latest stats payload (or null) and a human-readable error string.
+ */
+export function useStats(apiBase: string): { stats: StatsPayload | null; error: string | null } {
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 

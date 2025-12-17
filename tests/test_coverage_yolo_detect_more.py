@@ -153,7 +153,9 @@ def test_detect_xyxy_conf_path_and_pose_keypoints(monkeypatch):
     conf = np.array([0.5], dtype=np.float32)
     kpts = np.zeros((1, 17, 3), dtype=np.float32)
 
-    res = _FakeResult(boxes=_FakeBoxes(data=None, xyxy=xyxy, conf=conf), keypoints=_FakeKeypoints(kpts))
+    res = _FakeResult(
+        boxes=_FakeBoxes(data=None, xyxy=xyxy, conf=conf), keypoints=_FakeKeypoints(kpts)
+    )
 
     det.model.predict = lambda *_a, **_k: [res]
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from backend.api.schemas.models import ConfigSchema
 
@@ -27,28 +28,28 @@ def _base_payload() -> dict:
 def test_config_schema_video_source_validation():
     payload = _base_payload()
     payload["video_source"] = "nope"
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         ConfigSchema(**payload)
 
 
 def test_config_schema_grid_size_validation():
     payload = _base_payload()
     payload["grid_size"] = "0x10"
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         ConfigSchema(**payload)
 
 
 def test_config_schema_grid_size_missing_x_raises():
     payload = _base_payload()
     payload["grid_size"] = "10"
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         ConfigSchema(**payload)
 
 
 def test_config_schema_grid_size_zero_rows_raises():
     payload = _base_payload()
     payload["grid_size"] = "10x0"
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         ConfigSchema(**payload)
 
 
@@ -63,5 +64,5 @@ def test_config_schema_model_task_normalization():
     assert cfg2.model_task == "pose"
 
     payload["model_task"] = "seg"
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         ConfigSchema(**payload)

@@ -10,6 +10,8 @@ from backend.core.types import BBox, Detection, Point, TrackedPerson
 
 
 def iou(boxA: BBox, boxB: BBox) -> float:
+    """Compute the intersection-over-union (IoU) of two axis-aligned boxes."""
+
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
     xB = min(boxA[2], boxB[2])
@@ -27,6 +29,8 @@ def iou(boxA: BBox, boxB: BBox) -> float:
 
 @dataclass
 class Track:
+    """Internal tracker state for one person."""
+
     id: int
     bbox: BBox
     head_center: Point
@@ -36,13 +40,21 @@ class Track:
 
 
 class SimpleTracker:
-    def __init__(self, iou_threshold: float = 0.3, max_missed: int = 30):
+    """A lightweight IoU-based multi-object tracker.
+
+    This tracker assigns detections to existing tracks greedily by IoU and keeps
+    stable IDs for a short period of missed detections.
+    """
+
+    def __init__(self, iou_threshold: float = 0.3, max_missed: int = 30) -> None:
         self.iou_threshold = iou_threshold
         self.max_missed = max_missed
         self.tracks: dict[int, Track] = {}
         self._id_iter = itertools.count(1)
 
     def update(self, detections: list[Detection]) -> list[TrackedPerson]:
+        """Update tracks from detector outputs and return current tracked persons."""
+
         # Fast paths to avoid building matrices when possible.
         if not self.tracks:
             for det in detections:
@@ -89,14 +101,12 @@ class SimpleTracker:
         assigned_tracks = set()
         assigned_dets = set()
 
-        # Build IOU matrix
         track_ids = list(self.tracks.keys())
         iou_matrix = np.zeros((len(track_ids), len(detections)), dtype=float)
         for ti, tid in enumerate(track_ids):
             for di, det in enumerate(detections):
                 iou_matrix[ti, di] = iou(self.tracks[tid].bbox, det.bbox)
 
-        # Greedy assignment by IOU
         while True:
             if iou_matrix.size == 0:
                 break
@@ -120,7 +130,6 @@ class SimpleTracker:
             iou_matrix[ti, :] = -1
             iou_matrix[:, di] = -1
 
-        # Add new tracks
         for di, det in enumerate(detections):
             if di in assigned_dets:
                 continue
@@ -135,7 +144,6 @@ class SimpleTracker:
                 missed=0,
             )
 
-        # Age unmatched tracks
         to_delete = []
         for tid, track in self.tracks.items():
             if tid in assigned_tracks:

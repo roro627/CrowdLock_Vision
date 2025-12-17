@@ -1,8 +1,8 @@
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.api.services.state import get_engine
 from backend.api.services import state as engine_state
+from backend.api.services.state import get_engine
 from backend.core.types import FrameSummary, TrackedPerson
 
 

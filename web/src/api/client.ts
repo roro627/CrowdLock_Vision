@@ -1,3 +1,6 @@
+/**
+ * Compute a default API base URL from the current browser location.
+ */
 function defaultApiBaseFromLocation(): string {
   // Prefer same host as the web UI, with the backend port.
   const hostname = window.location.hostname || 'localhost';
@@ -5,6 +8,11 @@ function defaultApiBaseFromLocation(): string {
   return `${protocol}//${hostname}:8000`;
 }
 
+/**
+ * Resolve the backend API base URL.
+ *
+ * Uses `VITE_API_BASE` when set; otherwise falls back to the current host and port 8000.
+ */
 function resolveApiBase(): string {
   const envBase = import.meta.env.VITE_API_BASE as string | undefined;
   if (!envBase) return defaultApiBaseFromLocation();
@@ -53,10 +61,13 @@ export interface PresetListResponse {
   presets: PresetInfo[];
 }
 
+/**
+ * Perform a JSON request against the backend API.
+ */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
-    ...init
+    ...init,
   });
   if (!res.ok) {
     throw new Error(`Request failed: ${res.status}`);
@@ -64,15 +75,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+/**
+ * Backend API helpers used by the web UI.
+ */
 export const api = {
   base: API_BASE,
   getConfig: () => request<BackendConfig>('/config'),
-  updateConfig: (cfg: BackendConfig) => request<BackendConfig>('/config', {
-    method: 'POST',
-    body: JSON.stringify(cfg)
-  }),
+  updateConfig: (cfg: BackendConfig) =>
+    request<BackendConfig>('/config', {
+      method: 'POST',
+      body: JSON.stringify(cfg),
+    }),
   getPresets: () => request<PresetListResponse>('/config/presets'),
-  applyPreset: (presetId: string) => request<BackendConfig>(`/config/presets/${presetId}`, {
-    method: 'POST'
-  })
+  applyPreset: (presetId: string) =>
+    request<BackendConfig>(`/config/presets/${presetId}`, {
+      method: 'POST',
+    }),
 };

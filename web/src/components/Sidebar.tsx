@@ -15,7 +15,16 @@ interface Props {
   connection: string;
 }
 
-const ToggleRow = ({ label, value, onClick }: { label: string; value: boolean; onClick: () => void }) => (
+/** Render a single toggle button row. */
+const ToggleRow = ({
+  label,
+  value,
+  onClick,
+}: {
+  label: string;
+  value: boolean;
+  onClick: () => void;
+}) => (
   <button
     className={`button-ghost flex items-center justify-between w-full ${value ? 'bg-slate-800 border-accent/60' : ''}`}
     onClick={onClick}
@@ -25,8 +34,16 @@ const ToggleRow = ({ label, value, onClick }: { label: string; value: boolean; o
   </button>
 );
 
+/**
+ * Right-side control panel.
+ *
+ * Shows connection/health info and exposes overlay toggles for the video canvas.
+ */
 export function Sidebar({ frame, stats, statsError, toggles, onToggle, connection }: Props) {
-  const densest = useMemo(() => frame?.density?.max_cell ?? stats?.densest_cell ?? null, [frame, stats]);
+  const densest = useMemo(
+    () => frame?.density?.max_cell ?? stats?.densest_cell ?? null,
+    [frame, stats]
+  );
   const fps = frame?.fps ?? stats?.fps ?? 0;
   const people = frame?.persons.length ?? stats?.total_persons ?? 0;
   return (
@@ -38,10 +55,26 @@ export function Sidebar({ frame, stats, statsError, toggles, onToggle, connectio
       </div>
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-wide text-slate-400">Overlays</p>
-        <ToggleRow label="Bounding Boxes" value={toggles.showBoxes} onClick={() => onToggle('showBoxes')} />
-        <ToggleRow label="Head Markers" value={toggles.showHead} onClick={() => onToggle('showHead')} />
-        <ToggleRow label="Body Markers" value={toggles.showBody} onClick={() => onToggle('showBody')} />
-        <ToggleRow label="Density Heatmap" value={toggles.showDensity} onClick={() => onToggle('showDensity')} />
+        <ToggleRow
+          label="Bounding Boxes"
+          value={toggles.showBoxes}
+          onClick={() => onToggle('showBoxes')}
+        />
+        <ToggleRow
+          label="Head Markers"
+          value={toggles.showHead}
+          onClick={() => onToggle('showHead')}
+        />
+        <ToggleRow
+          label="Body Markers"
+          value={toggles.showBody}
+          onClick={() => onToggle('showBody')}
+        />
+        <ToggleRow
+          label="Density Heatmap"
+          value={toggles.showDensity}
+          onClick={() => onToggle('showDensity')}
+        />
       </div>
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div className="card p-3">

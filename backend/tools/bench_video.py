@@ -1,3 +1,9 @@
+"""CLI: benchmark the vision pipeline on one or more videos.
+
+This tool is intentionally print-oriented (human-readable) and also writes a JSON
+report suitable for regression tracking.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -20,6 +26,8 @@ from backend.core.trackers.simple_tracker import SimpleTracker
 
 
 def _percentiles(values: list[float]) -> dict[str, float]:
+    """Compute a small set of percentiles for a list of timings."""
+
     if not values:
         return {"min": 0.0, "p50": 0.0, "p95": 0.0, "p99": 0.0, "max": 0.0, "mean": 0.0}
     arr = np.array(values, dtype=np.float64)
@@ -34,12 +42,16 @@ def _percentiles(values: list[float]) -> dict[str, float]:
 
 
 def _merge_settings(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """Merge a patch dict into base settings, preserving explicit `None` values."""
+
     out = dict(base)
     out.update({k: v for k, v in patch.items() if v is not None or k in patch})
     return out
 
 
 def _open_capture(path: str) -> cv2.VideoCapture:
+    """Open a video file path via OpenCV and raise a user-friendly error on failure."""
+
     cap = cv2.VideoCapture(path)
     if not cap.isOpened():
         raise SystemExit(f"Cannot open video: {path}")
@@ -47,6 +59,8 @@ def _open_capture(path: str) -> cv2.VideoCapture:
 
 
 def _iter_inputs(input_path: str) -> list[str]:
+    """Expand an input path (file or directory) into a list of video file paths."""
+
     p = Path(input_path)
     if p.is_dir():
         vids = []
@@ -59,6 +73,8 @@ def _iter_inputs(input_path: str) -> list[str]:
 
 
 def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
+    """Run a single benchmark pass over one video path with given settings."""
+
     cap = _open_capture(video_path)
 
     grid = _parse_grid(str(settings.get("grid_size", "10x10")))
@@ -81,7 +97,9 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
             merge_iou=float(settings.get("roi_merge_iou", 0.20)),
             max_area_fraction=float(settings.get("roi_max_area_fraction", 0.70)),
             full_frame_every_n=int(settings.get("roi_full_frame_every_n", 15)),
-            force_full_frame_on_track_loss=float(settings.get("roi_force_full_frame_on_track_loss", 0.25)),
+            force_full_frame_on_track_loss=float(
+                settings.get("roi_force_full_frame_on_track_loss", 0.25)
+            ),
             detections_nms_iou=float(settings.get("roi_detections_nms_iou", 0.50)),
         ),
     )
@@ -133,7 +151,9 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
         # warmup (don’t record)
         frames += 1
         if frames <= warmup_frames:
-            pipeline.process(frame, inference_width=inference_width, inference_stride=inference_stride)
+            pipeline.process(
+                frame, inference_width=inference_width, inference_stride=inference_stride
+            )
             continue
 
         decode_ms.append((t_dec1 - t_dec0) * 1000.0)
@@ -178,7 +198,9 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
                 out_h = max(1, int(h0 * scale))
                 # INTER_AREA is higher quality for downscale but noticeably slower.
                 # For MJPEG streaming/benchmarking we prefer throughput.
-                annotated = cv2.resize(annotated, (output_width, out_h), interpolation=cv2.INTER_LINEAR)
+                annotated = cv2.resize(
+                    annotated, (output_width, out_h), interpolation=cv2.INTER_LINEAR
+                )
         t_out1 = time.perf_counter()
         out_resize_ms.append((t_out1 - t_out0) * 1000.0)
 
@@ -190,9 +212,7 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
         )
         t_enc1 = time.perf_counter()
         encode_ms.append((t_enc1 - t_enc0) * 1000.0)
-        if not ok2:
-            # still count total up to this point
-            pass
+        _ = ok2
 
         t1 = time.perf_counter()
         total_ms.append((t1 - t0) * 1000.0)
@@ -213,7 +233,7 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
     infer_mask = [f >= 0.5 for f in infer_flags]
 
     def _filter(values: list[float]) -> list[float]:
-        return [v for v, keep in zip(values, infer_mask) if keep]
+        return [v for v, keep in zip(values, infer_mask, strict=False) if keep]
 
     result = {
         "video": video_path,
@@ -245,11 +265,18 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
             "pipeline": _percentiles(_filter(pipeline_ms)),
         },
         "roi_stats": {
-            "roi_used_ratio": (sum(1.0 for v in roi_used_flags if v >= 0.5) / measured)
-            if measured > 0
-            else 0.0,
+            "roi_used_ratio": (
+                (sum(1.0 for v in roi_used_flags if v >= 0.5) / measured) if measured > 0 else 0.0
+            ),
             "roi_used_ratio_per_infer": (
-                (sum(1.0 for v, keep in zip(roi_used_flags, infer_mask) if keep and v >= 0.5) / infer_measured)
+                (
+                    sum(
+                        1.0
+                        for v, keep in zip(roi_used_flags, infer_mask, strict=False)
+                        if keep and v >= 0.5
+                    )
+                    / infer_measured
+                )
                 if infer_measured > 0
                 else 0.0
             ),
@@ -265,6 +292,8 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> None:
+    """CLI entrypoint for benchmarking one or more videos."""
+
     parser = argparse.ArgumentParser(description="Benchmark the CV pipeline on real video files")
     parser.add_argument(
         "--input",
@@ -373,7 +402,6 @@ def main() -> None:
                 f"({res['infer_ratio']*100.0:.1f}%), skipped: {res['skip_frames_measured']}"
             )
             stages = res["stages_ms"]
-            # print top contributors by mean ms
             means = {name: float(stages[name]["mean"]) for name in stages.keys()}
             top = sorted(means.items(), key=lambda kv: kv[1], reverse=True)[:5]
             print("Top mean stages (ms):")

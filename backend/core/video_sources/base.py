@@ -1,43 +1,75 @@
+"""Video source abstractions.
+
+The backend consumes frames through a small interface (`VideoSource`) so the capture
+implementation (webcam/file/RTSP) can be swapped without affecting the vision
+pipeline.
+"""
+
 from __future__ import annotations
 
+import logging
+import threading
+import time
 from abc import ABC, abstractmethod
 
 import cv2
-import threading
-import time
+
+from backend.core.types import Frame
+
+logger = logging.getLogger(__name__)
 
 
 class VideoSource(ABC):
-    @abstractmethod
-    def read(self): ...
+    """Base interface for anything that can produce video frames."""
 
     @abstractmethod
-    def close(self): ...
+    def read(self) -> Frame | None:
+        """Return the next frame, or `None` when unavailable."""
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def close(self) -> None:
+        """Release any underlying resources."""
+
+        raise NotImplementedError
 
 
 class OpenCVSource(VideoSource):
-    def __init__(self, source):
+    """A `VideoSource` backed by `cv2.VideoCapture`."""
+
+    def __init__(self, source: str | int) -> None:
         self.cap = cv2.VideoCapture(source)
         if not self.cap.isOpened():
             raise RuntimeError(f"Failed to open video source: {source}")
 
-    def read(self):
+    def read(self) -> Frame | None:
+        """Read the next frame from the underlying OpenCV capture."""
+
         ok, frame = self.cap.read()
         if not ok:
             return None
         return frame
 
-    def close(self):
+    def close(self) -> None:
+        """Release the underlying OpenCV capture."""
+
         self.cap.release()
 
 
 class WebcamSource(OpenCVSource):
-    def __init__(self, index: int = 0):
-        # Try multiple backends and indices to find a working camera
+    """Webcam capture with low-latency buffering (Windows-friendly)."""
+
+    def __init__(self, index: int = 0) -> None:
+        """Create a webcam source.
+
+        Tries a short list of backends and indices to find a working camera. When
+        available, it spawns a reader thread that continuously drains the driver
+        buffer and keeps only the latest frame to minimize latency.
+        """
+
         self.cap = None
 
-        # List of (index, backend) tuples to try
-        # We try index 0 then 1, with DSHOW (best for Windows) then MSMF then default
         candidates = [
             (index, cv2.CAP_DSHOW),
             (index, cv2.CAP_MSMF),
@@ -50,11 +82,10 @@ class WebcamSource(OpenCVSource):
             try:
                 cap = cv2.VideoCapture(idx, backend)
                 if cap.isOpened():
-                    # Try to read a frame to ensure it actually works
                     ret, _ = cap.read()
                     if ret:
                         self.cap = cap
-                        print(f"Successfully opened camera {idx} with backend {backend}")
+                        logger.info("Opened camera index=%s backend=%s", idx, backend)
                         break
                     else:
                         cap.release()
@@ -94,9 +125,9 @@ class WebcamSource(OpenCVSource):
         self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
         self._reader_thread.start()
 
-    def _reader_loop(self):
-        # Keep grabbing frames continuously so the camera/driver buffer doesn't accumulate latency.
-        # Store only the newest decoded frame.
+    def _reader_loop(self) -> None:
+        """Continuously drain the driver buffer and keep only the newest frame."""
+
         try:
             while self._running and self.cap is not None:
                 ok, frame = self.cap.read()
@@ -113,7 +144,9 @@ class WebcamSource(OpenCVSource):
                 self._reader_error = e
                 self._latest_ok = False
 
-    def close(self):
+    def close(self) -> None:
+        """Stop the background reader thread and release the camera."""
+
         self._running = False
         try:
             if getattr(self, "_reader_thread", None) is not None and self._reader_thread.is_alive():
@@ -122,7 +155,9 @@ class WebcamSource(OpenCVSource):
             if self.cap is not None:
                 self.cap.release()
 
-    def read(self):
+    def read(self) -> Frame | None:
+        """Return the most recent frame captured by the background reader."""
+
         if self.cap is None:
             return None
 
@@ -155,10 +190,14 @@ class WebcamSource(OpenCVSource):
 
 
 class FileSource(OpenCVSource):
-    def __init__(self, path: str):
+    """Video file source (path to a container/codec supported by OpenCV)."""
+
+    def __init__(self, path: str) -> None:
         super().__init__(path)
 
 
 class RTSPSource(OpenCVSource):
-    def __init__(self, url: str):
+    """RTSP stream source."""
+
+    def __init__(self, url: str) -> None:
         super().__init__(url)

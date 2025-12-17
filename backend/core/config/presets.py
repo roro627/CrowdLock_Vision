@@ -1,16 +1,17 @@
+"""CPU-oriented runtime presets.
+
+These presets provide conservative defaults designed to improve FPS while keeping
+acceptable perceived quality.
+
+Notes:
+- `inference_stride`: run detector every N frames (tracker reused in between)
+- `output_width` + `jpeg_quality`: reduce MJPEG encode/transport cost
+- `target_fps`: caps the processing loop; `0` means "run as fast as possible"
+"""
+
 from __future__ import annotations
 
 from typing import Any
-
-
-# CPU-oriented presets. These are conservative defaults designed to increase FPS
-# without destroying perceived image quality.
-#
-# Notes:
-# - inference_stride: run detector every N frames (tracker reused in between)
-# - output_width + jpeg_quality primarily affect MJPEG encode/transport cost
-# - target_fps caps the processing loop; 0 means "run as fast as possible"
-
 
 PRESETS: dict[str, dict[str, Any]] = {
     # Best visual quality; stable CPU usage.
@@ -55,6 +56,8 @@ PRESET_LABELS: dict[str, str] = {
 
 
 def list_presets() -> list[dict[str, Any]]:
+    """Return presets as a list of objects for the API."""
+
     return [
         {
             "id": preset_id,
@@ -66,6 +69,8 @@ def list_presets() -> list[dict[str, Any]]:
 
 
 def preset_patch(preset_id: str) -> dict[str, Any]:
+    """Return a shallow copy of the settings patch for the given preset id."""
+
     if preset_id not in PRESETS:
         raise KeyError(preset_id)
     return dict(PRESETS[preset_id])

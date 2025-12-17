@@ -1,3 +1,9 @@
+"""ROI utilities for CPU-efficient inference.
+
+This module builds regions-of-interest from tracker output, packs multiple ROIs
+into a single mosaic, and reprojects detections back into full-frame coordinates.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,6 +15,8 @@ from backend.core.types import BBox, Detection
 
 @dataclass(frozen=True)
 class RoiConfig:
+    """Configuration for ROI-driven inference."""
+
     enabled: bool = False
     track_margin: float = 0.30
     entry_band: float = 0.08
@@ -21,21 +29,24 @@ class RoiConfig:
 
 @dataclass(frozen=True)
 class PackedRoi:
-    # ROI crop in original frame coords (float bbox, but typically integer-ish).
+    """Placement metadata for a ROI crop inside a mosaic image."""
+
     roi: BBox
-    # Top-left placement of the crop inside the mosaic.
     mosaic_x: int
     mosaic_y: int
-    # Actual crop size (pixels).
     w: int
     h: int
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
+    """Clamp `v` into [lo, hi]."""
+
     return lo if v < lo else hi if v > hi else v
 
 
 def clamp_bbox(bbox: BBox, frame_w: int, frame_h: int) -> BBox:
+    """Clamp bbox coordinates to the frame rectangle and normalize ordering."""
+
     x1, y1, x2, y2 = bbox
     x1 = _clamp(x1, 0.0, float(frame_w))
     x2 = _clamp(x2, 0.0, float(frame_w))
@@ -49,6 +60,8 @@ def clamp_bbox(bbox: BBox, frame_w: int, frame_h: int) -> BBox:
 
 
 def expand_bbox(bbox: BBox, margin: float) -> BBox:
+    """Expand a bbox by a fraction of its width/height."""
+
     x1, y1, x2, y2 = bbox
     w = max(0.0, x2 - x1)
     h = max(0.0, y2 - y1)
@@ -58,16 +71,22 @@ def expand_bbox(bbox: BBox, margin: float) -> BBox:
 
 
 def shift_bbox(bbox: BBox, dx: float, dy: float) -> BBox:
+    """Translate a bbox by (dx, dy)."""
+
     x1, y1, x2, y2 = bbox
     return (x1 + float(dx), y1 + float(dy), x2 + float(dx), y2 + float(dy))
 
 
 def bbox_area(bbox: BBox) -> float:
+    """Compute the area of a bbox (0 for empty/invalid boxes)."""
+
     x1, y1, x2, y2 = bbox
     return max(0.0, x2 - x1) * max(0.0, y2 - y1)
 
 
 def bbox_iou(a: BBox, b: BBox) -> float:
+    """Compute Intersection-over-Union (IoU) between two bounding boxes."""
+
     ax1, ay1, ax2, ay2 = a
     bx1, by1, bx2, by2 = b
     x1 = max(ax1, bx1)
@@ -81,19 +100,23 @@ def bbox_iou(a: BBox, b: BBox) -> float:
     ub = bbox_area(b)
     union = ua + ub - inter
     # Defensive: for well-formed boxes with inter>0, union should be >0.
-    # Keep this guard but exclude from coverage (would require contrived NaN/inf inputs).
-    if union <= 0.0:  # pragma: no cover
-        return 0.0  # pragma: no cover
+    # Keep this guard to avoid division-by-zero on contrived NaN/inf inputs.
+    if union <= 0.0:
+        return 0.0
     return inter / union
 
 
 def union_bbox(a: BBox, b: BBox) -> BBox:
+    """Return the smallest bbox that fully contains both input boxes."""
+
     ax1, ay1, ax2, ay2 = a
     bx1, by1, bx2, by2 = b
     return (min(ax1, bx1), min(ay1, by1), max(ax2, bx2), max(ay2, by2))
 
 
 def merge_rois(rois: list[BBox], iou_threshold: float) -> list[BBox]:
+    """Merge overlapping ROIs by repeatedly unioning pairs above an IoU threshold."""
+
     if not rois:
         return []
 
@@ -131,6 +154,13 @@ def build_rois_from_tracks(
     track_margin: float,
     entry_band: float,
 ) -> list[BBox]:
+    """Build a list of ROI boxes from tracker bboxes plus optional border bands.
+
+    Track ROIs are expanded by `track_margin` and clamped to frame bounds.
+    When `entry_band` > 0, extra ROIs are added along frame edges to catch
+    newly entering people.
+    """
+
     rois: list[BBox] = []
 
     for bbox in track_bboxes:
@@ -148,16 +178,16 @@ def build_rois_from_tracks(
         if bh >= 1.0:
             rois.append((0.0, float(frame_h) - bh, float(frame_w), float(frame_h)))
 
-    # clamp everything
     return [clamp_bbox(r, frame_w, frame_h) for r in rois]
 
 
 def nms_detections(detections: list[Detection], iou_threshold: float) -> list[Detection]:
+    """Apply a simple IoU-based non-maximum suppression (NMS) on detections."""
+
     if not detections:
         return []
 
     thr = float(iou_threshold)
-    # sort by confidence desc
     dets = sorted(detections, key=lambda d: float(d.confidence), reverse=True)
     kept: list[Detection] = []
     for det in dets:
@@ -172,6 +202,8 @@ def nms_detections(detections: list[Detection], iou_threshold: float) -> list[De
 
 
 def reproject_detection(det: Detection, dx: float, dy: float) -> Detection:
+    """Shift a detection (bbox + optional keypoints) by (dx, dy)."""
+
     x1, y1, x2, y2 = det.bbox
     kp = det.keypoints
     if kp is not None:
@@ -187,6 +219,8 @@ def reproject_detection(det: Detection, dx: float, dy: float) -> Detection:
 
 
 def crop_bbox_to_int(bbox: BBox) -> tuple[int, int, int, int]:
+    """Convert a float bbox to an integer crop rectangle with at least 1px size."""
+
     x1, y1, x2, y2 = bbox
     xi1 = int(max(0.0, np.floor(x1)))
     yi1 = int(max(0.0, np.floor(y1)))
@@ -222,7 +256,6 @@ def pack_rois_grid(
 
     # Compute crop rects (clamped to frame) and their integer sizes.
     crops: list[tuple[BBox, int, int, int, int, int, int]] = []
-    # (roi_bbox, x1,y1,x2,y2,cw,ch)
     for roi in rois:
         x1, y1, x2, y2 = crop_bbox_to_int(roi)
         x1 = max(0, min(int(x1), w - 1))
@@ -233,7 +266,6 @@ def pack_rois_grid(
         ch = int(y2 - y1)
         crops.append((roi, x1, y1, x2, y2, cw, ch))
 
-    # Assign crops row-major.
     col_widths = [0] * cols
     row_heights = [0] * rows
     for idx, (_roi, _x1, _y1, _x2, _y2, cw, ch) in enumerate(crops):
@@ -380,7 +412,6 @@ def split_and_reproject_mosaic_detections(
         if owner is None:
             continue
 
-        # dx/dy to map mosaic coords -> full frame coords
         rx1, ry1, _rx2, _ry2 = owner.roi
         dx = float(rx1) - float(owner.mosaic_x)
         dy = float(ry1) - float(owner.mosaic_y)

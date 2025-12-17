@@ -1,3 +1,5 @@
+"""Stats endpoint."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
@@ -10,7 +12,9 @@ router = APIRouter()
 
 
 @router.get("/stats", response_model=StatsSchema)
-def stats(engine: VideoEngine = Depends(get_engine)):
+def stats(engine: VideoEngine = Depends(get_engine)) -> StatsSchema:
+    """Return high-level streaming statistics."""
+
     summary = engine.latest_summary()
     if summary is None:
         return StatsSchema(

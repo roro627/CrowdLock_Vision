@@ -3,13 +3,17 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 body {
-  background: radial-gradient(circle at 20% 20%, rgba(29, 209, 161, 0.08), transparent 30%),
-    radial-gradient(circle at 80% 30%, rgba(255, 159, 67, 0.12), transparent 35%),
-    #0f172a;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(29, 209, 161, 0.08), transparent 30%),
+    radial-gradient(circle at 80% 30%, rgba(255, 159, 67, 0.12), transparent 35%), #0f172a;
   min-height: 100vh;
 }
 

@@ -6,12 +6,12 @@ from backend.core.analytics.pipeline import VisionPipeline
 from backend.core.roi import (
     RoiConfig,
     bbox_iou,
+    build_rois_from_tracks,
     clamp_bbox,
     crop_bbox_to_int,
-    build_rois_from_tracks,
     estimate_best_mosaic_area,
-    nms_detections,
     merge_rois,
+    nms_detections,
     pack_rois_best_grid,
     pack_rois_grid,
     reproject_detection,
@@ -169,7 +169,9 @@ def test_estimate_best_mosaic_area_matches_actual_best_grid_shape():
         (10.0, 0.0, 20.0, 10.0),
         (0.0, 10.0, 10.0, 20.0),
     ]
-    mw, mh, area, _cols = estimate_best_mosaic_area(frame_shape=frame.shape, rois=rois, max_cols_limit=4, pad=2)
+    mw, mh, area, _cols = estimate_best_mosaic_area(
+        frame_shape=frame.shape, rois=rois, max_cols_limit=4, pad=2
+    )
     mosaic, _ = pack_rois_best_grid(frame, rois, max_cols_limit=4, pad=2)
     assert (mh, mw) == mosaic.shape[:2]
     assert area == int(mosaic.shape[0] * mosaic.shape[1])

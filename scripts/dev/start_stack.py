@@ -20,18 +20,26 @@ CTRL_BREAK_EVENT = getattr(signal, "CTRL_BREAK_EVENT", signal.SIGTERM)
 
 @dataclass
 class ManagedProcess:
+    """A started subprocess that should be monitored and terminated on shutdown."""
+
     name: str
     handle: subprocess.Popen
 
 
 class ProcessManager:
+    """Start and manage long-running child processes for the dev stack."""
+
     def __init__(self, separate_consoles: bool) -> None:
+        """Create a manager for child processes."""
+
         self.processes: list[ManagedProcess] = []
         self.separate_consoles = separate_consoles
 
     def start(
         self, name: str, args: list[str], cwd: Path, env: dict[str, str] | None = None
     ) -> None:
+        """Start a child process and track it for shutdown."""
+
         creationflags = CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
         if os.name == "nt" and self.separate_consoles:
             creationflags |= CREATE_NEW_CONSOLE
@@ -44,6 +52,8 @@ class ProcessManager:
         self.processes.append(ManagedProcess(name=name, handle=process))
 
     def monitor(self) -> None:
+        """Block until a managed process exits (then raise)."""
+
         while True:
             for managed in list(self.processes):
                 return_code = managed.handle.poll()
@@ -52,6 +62,8 @@ class ProcessManager:
             time.sleep(0.25)
 
     def shutdown(self) -> None:
+        """Terminate all managed processes."""
+
         for managed in self.processes:
             terminate_process(managed)
         for managed in self.processes:
@@ -62,6 +74,8 @@ class ProcessManager:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for starting backend/frontend dev servers."""
+
     parser = argparse.ArgumentParser(description="Start backend and frontend dev servers")
     parser.add_argument(
         "--backend-mode",
@@ -130,6 +144,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def ensure_command_available(executable: str) -> str:
+    """Resolve an executable from PATH or exit with a helpful error."""
+
     resolved = shutil.which(executable)
     if resolved is None:
         raise SystemExit(f"Required command '{executable}' is not available on PATH")
@@ -137,6 +153,8 @@ def ensure_command_available(executable: str) -> str:
 
 
 def parse_compose_command(raw: str) -> list[str]:
+    """Split a compose command string into argv parts."""
+
     parts = shlex.split(raw)
     if not parts:
         raise SystemExit("Compose command cannot be empty")
@@ -144,6 +162,8 @@ def parse_compose_command(raw: str) -> list[str]:
 
 
 def ensure_frontend_dependencies(frontend_dir: Path, npm_cmd: str) -> None:
+    """Ensure frontend deps exist, optionally running `npm install`."""
+
     if (frontend_dir / "node_modules").exists():
         return
     print("[setup] node_modules missing, running npm install ...", flush=True)
@@ -151,12 +171,16 @@ def ensure_frontend_dependencies(frontend_dir: Path, npm_cmd: str) -> None:
 
 
 def extend_pythonpath(root: Path, current: str | None) -> str:
+    """Prepend the repo root to PYTHONPATH."""
+
     if current:
         return f"{root}{os.pathsep}{current}"
     return str(root)
 
 
 def terminate_process(managed: ManagedProcess) -> None:
+    """Attempt graceful termination, then force-kill if needed."""
+
     process = managed.handle
     if process.poll() is not None:
         return
@@ -171,6 +195,8 @@ def terminate_process(managed: ManagedProcess) -> None:
 
 
 def main() -> None:
+    """Entry point for launching the dev stack."""
+
     args = parse_args()
     # Go two levels up: scripts/dev/start_stack.py -> <repo>/scripts/dev -> <repo>/scripts -> <repo>
     root = Path(__file__).resolve().parents[2]

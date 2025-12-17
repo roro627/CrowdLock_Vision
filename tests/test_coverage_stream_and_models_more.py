@@ -1,13 +1,10 @@
-import types
-
 import asyncio
 
-import pytest
+from fastapi import WebSocketDisconnect
 
 import backend.api.routes.stream as stream_routes
 from backend.api.schemas.models import ConfigSchema
 from backend.core.types import FrameSummary
-from fastapi import WebSocketDisconnect
 
 
 def test_config_schema_rejects_bad_grid_and_bad_source():
@@ -80,8 +77,12 @@ class _FakeEngine:
         return self._fps
 
     async def metadata_stream(self):
-        yield FrameSummary(frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(1, 1))
-        yield FrameSummary(frame_id=2, timestamp=2.0, persons=[], density={}, fps=1.0, frame_size=(1, 1))
+        yield FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(1, 1)
+        )
+        yield FrameSummary(
+            frame_id=2, timestamp=2.0, persons=[], density={}, fps=1.0, frame_size=(1, 1)
+        )
         return
 
 
@@ -125,7 +126,9 @@ def test_stream_metadata_outer_exception_closes_ws(monkeypatch):
         async def metadata_stream(self):
             raise RuntimeError("boom")
             if False:  # make this an async generator
-                yield FrameSummary(frame_id=0, timestamp=0.0, persons=[], density={}, fps=0.0, frame_size=(1, 1))
+                yield FrameSummary(
+                    frame_id=0, timestamp=0.0, persons=[], density={}, fps=0.0, frame_size=(1, 1)
+                )
 
     engine = _BoomEngine()
     monkeypatch.setattr(stream_routes, "get_engine", lambda: engine)
@@ -144,7 +147,9 @@ def test_stream_metadata_websocket_disconnect_returns(monkeypatch):
         async def metadata_stream(self):
             raise WebSocketDisconnect()
             if False:  # async generator
-                yield FrameSummary(frame_id=0, timestamp=0.0, persons=[], density={}, fps=0.0, frame_size=(1, 1))
+                yield FrameSummary(
+                    frame_id=0, timestamp=0.0, persons=[], density={}, fps=0.0, frame_size=(1, 1)
+                )
 
     engine = _DiscEngine()
     monkeypatch.setattr(stream_routes, "get_engine", lambda: engine)

@@ -269,8 +269,6 @@ MIT License – see [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-**Built with ❤️ for real-time vision applications**
-
 [⬆ Back to Top](#-crowdlock-vision)
 
 </div>

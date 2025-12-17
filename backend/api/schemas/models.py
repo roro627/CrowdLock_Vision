@@ -1,14 +1,21 @@
+"""Pydantic models for the HTTP/WS API."""
+
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
+import pydantic
 from pydantic import BaseModel, Field
 
-try:  # Pydantic v2
-    from pydantic import field_validator as _field_validator
-except Exception:  # pragma: no cover - Pydantic v1
-    from pydantic import validator as _field_validator  # type: ignore
+_field_validator: Callable[..., Any] = (
+    getattr(pydantic, "field_validator", None) or pydantic.validator
+)
 
 
 class PersonSchema(BaseModel):
+    """Tracked person payload."""
+
     id: int
     bbox: tuple[float, float, float, float]
     head_center: tuple[float, float]
@@ -17,22 +24,28 @@ class PersonSchema(BaseModel):
 
 
 class DensitySchema(BaseModel):
+    """Density grid payload."""
+
     grid_size: list[int]
-    cells: list
+    cells: list[list[float]]
     max_cell: list[int]
 
 
 class FrameSchema(BaseModel):
+    """Per-frame metadata payload."""
+
     frame_id: int
     timestamp: float
     persons: list[PersonSchema]
-    density: DensitySchema | dict
+    density: DensitySchema | dict[str, Any]
     fps: float
     frame_size: tuple[int, int] | list[int]
     stream_fps: float | None = None
 
 
 class StatsSchema(BaseModel):
+    """High-level summary stats payload."""
+
     total_persons: int
     fps: float
     stream_fps: float | None = None
@@ -41,6 +54,8 @@ class StatsSchema(BaseModel):
 
 
 class ConfigSchema(BaseModel):
+    """Runtime configuration payload."""
+
     video_source: str
     video_path: str | None = None
     rtsp_url: str | None = None
@@ -81,4 +96,3 @@ class ConfigSchema(BaseModel):
         if v2 not in {"detect", "pose"}:
             raise ValueError("model_task must be auto|detect|pose")
         return v2
-

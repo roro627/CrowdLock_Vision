@@ -1,7 +1,15 @@
+"""Standalone benchmark for the vision pipeline.
+
+This script runs a synthetic workload to estimate throughput and latency on CPU.
+"""
+
+from __future__ import annotations
+
 import argparse
 import json
 import os
 import time
+from typing import Any
 
 import cv2
 import numpy as np
@@ -26,7 +34,9 @@ def run_benchmark(
     resolution: tuple[int, int] = (1920, 1080),
     inference_width: int = 640,
     optimize: bool = False,
-):
+) -> dict[str, Any] | None:
+    """Run a synthetic benchmark and return a JSON-serializable results dict."""
+
     print(f"\n{'='*50}")
     print("Running Benchmark (CPU-only)")
     print(f"{'='*50}")
@@ -65,7 +75,7 @@ def run_benchmark(
         import traceback
 
         print(f"Error initializing pipeline: {e}")
-        with open("benchmark_error.txt", "w") as f:
+        with open("benchmark_error.txt", "w", encoding="utf-8") as f:
             f.write(traceback.format_exc())
         return
 
@@ -79,7 +89,7 @@ def run_benchmark(
     print("Warmup complete. Starting benchmark...")
 
     frame_count = 0
-    latencies = []
+    latencies: list[float] = []
     start_time = time.time()
     end_time = start_time + duration_sec
 
@@ -108,7 +118,7 @@ def run_benchmark(
     print(f"  P95: {np.percentile(latencies, 95):.2f}")
     print(f"  P99: {np.percentile(latencies, 99):.2f}")
 
-    results = {
+    results: dict[str, Any] = {
         "optimize": optimize,
         "resolution": list(resolution),
         "inference_width": inference_width,
@@ -123,9 +133,7 @@ def run_benchmark(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark CrowdLock Vision Pipeline")
-    parser.add_argument(
-        "--duration", type=int, default=10, help="Benchmark duration in seconds"
-    )
+    parser.add_argument("--duration", type=int, default=10, help="Benchmark duration in seconds")
     parser.add_argument("--width", type=int, default=1920, help="Frame width")
     parser.add_argument("--height", type=int, default=1080, help="Frame height")
     parser.add_argument("--inference-width", type=int, default=640, help="Inference width")
@@ -142,6 +150,6 @@ if __name__ == "__main__":
         optimize=args.optimize,
     )
     if res:
-        with open("benchmark_results.json", "w") as f:
+        with open("benchmark_results.json", "w", encoding="utf-8") as f:
             json.dump([res], f, indent=4)
         print("Saved results to benchmark_results.json")

@@ -1,3 +1,9 @@
+"""Overlay drawing helpers (OpenCV).
+
+This is used when backend-side overlays are enabled (otherwise overlays are drawn
+client-side in the web UI).
+"""
+
 from __future__ import annotations
 
 import cv2
@@ -13,7 +19,8 @@ DENSITY_MAX_COLOR = (255, 0, 0)
 
 
 def draw_overlays(frame: np.ndarray, summary: FrameSummary) -> np.ndarray:
-    # Fast path: avoid copying large frames when there's nothing to draw.
+    """Return a copy of `frame` with boxes/targets/density overlays drawn."""
+
     if not summary.persons and not summary.density:
         return frame
 
@@ -35,10 +42,8 @@ def draw_overlays(frame: np.ndarray, summary: FrameSummary) -> np.ndarray:
             cv2.LINE_AA,
         )
 
-    # density heatmap overlay
     density = summary.density
     if density:
-        # Use asarray to avoid an unnecessary copy when possible.
         grid = np.asarray(density.get("cells", []))
         if grid.size > 0:
             gx, gy = density.get("grid_size", [grid.shape[1], grid.shape[0]])

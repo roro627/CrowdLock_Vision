@@ -14,7 +14,10 @@ interface Props {
   backendError?: string | null;
 }
 
-function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: Props) {
+/**
+ * Draw metadata overlays (boxes, keypoints, density) on the overlay canvas.
+ */
+function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: Props): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   const { width, height } = canvas;
@@ -36,19 +39,36 @@ function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: 
     if (options.showBoxes) {
       ctx.strokeStyle = '#00aaff';
       ctx.lineWidth = 2;
-      ctx.strokeRect(offsetX + x1 * scale, offsetY + y1 * scale, (x2 - x1) * scale, (y2 - y1) * scale);
+      ctx.strokeRect(
+        offsetX + x1 * scale,
+        offsetY + y1 * scale,
+        (x2 - x1) * scale,
+        (y2 - y1) * scale
+      );
     }
     if (options.showHead) {
       ctx.fillStyle = '#1dd1a1';
       ctx.beginPath();
-      ctx.arc(offsetX + p.head_center[0] * scale, offsetY + p.head_center[1] * scale, 5, 0, Math.PI * 2);
+      ctx.arc(
+        offsetX + p.head_center[0] * scale,
+        offsetY + p.head_center[1] * scale,
+        5,
+        0,
+        Math.PI * 2
+      );
       ctx.fill();
     }
     if (options.showBody) {
       ctx.strokeStyle = '#ff9f43';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(offsetX + p.body_center[0] * scale, offsetY + p.body_center[1] * scale, 7, 0, Math.PI * 2);
+      ctx.arc(
+        offsetX + p.body_center[0] * scale,
+        offsetY + p.body_center[1] * scale,
+        7,
+        0,
+        Math.PI * 2
+      );
       ctx.stroke();
     }
     ctx.fillStyle = '#e2e8f0';
@@ -79,6 +99,9 @@ function drawOverlay(canvas: HTMLCanvasElement, payload: FramePayload, options: 
   }
 }
 
+/**
+ * Find the first occurrence of `needle` inside `haystack` starting at `fromIndex`.
+ */
 function indexOfBytes(haystack: Uint8Array, needle: Uint8Array, fromIndex = 0): number {
   if (needle.length === 0) return fromIndex;
   outer: for (let i = fromIndex; i <= haystack.length - needle.length; i++) {
@@ -90,6 +113,9 @@ function indexOfBytes(haystack: Uint8Array, needle: Uint8Array, fromIndex = 0): 
   return -1;
 }
 
+/**
+ * Concatenate two Uint8Arrays.
+ */
 function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
   if (a.length === 0) return b;
   if (b.length === 0) return a;
@@ -99,7 +125,15 @@ function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
   return out;
 }
 
-function drawCover(ctx: CanvasRenderingContext2D, bitmap: ImageBitmap, canvasW: number, canvasH: number) {
+/**
+ * Draw an image bitmap with CSS `object-cover` behavior.
+ */
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  bitmap: ImageBitmap,
+  canvasW: number,
+  canvasH: number
+): void {
   const frameW = bitmap.width;
   const frameH = bitmap.height;
   const scale = Math.max(canvasW / frameW, canvasH / frameH);
@@ -111,7 +145,20 @@ function drawCover(ctx: CanvasRenderingContext2D, bitmap: ImageBitmap, canvasW: 
   ctx.drawImage(bitmap, offsetX, offsetY, drawW, drawH);
 }
 
-export function VideoOverlay({ frame, getFrameById, showBoxes, showHead, showBody, showDensity, videoUrl, connection, backendError }: Props) {
+/**
+ * Renders the MJPEG stream into a canvas and draws overlays aligned by `frame_id`.
+ */
+export function VideoOverlay({
+  frame,
+  getFrameById,
+  showBoxes,
+  showHead,
+  showBody,
+  showDensity,
+  videoUrl,
+  connection,
+  backendError,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const videoCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -143,7 +190,9 @@ export function VideoOverlay({ frame, getFrameById, showBoxes, showHead, showBod
     const update = (w: number, h: number) => {
       const nextW = Math.max(1, Math.round(w));
       const nextH = Math.max(1, Math.round(h));
-      setCanvasSize((prev) => (prev.w === nextW && prev.h === nextH ? prev : { w: nextW, h: nextH }));
+      setCanvasSize((prev) =>
+        prev.w === nextW && prev.h === nextH ? prev : { w: nextW, h: nextH }
+      );
     };
 
     const rect = el.getBoundingClientRect();
@@ -175,7 +224,17 @@ export function VideoOverlay({ frame, getFrameById, showBoxes, showHead, showBod
       connection,
       backendError,
     });
-  }, [alignedFrame, frame, showBoxes, showHead, showBody, showDensity, videoUrl, connection, backendError]);
+  }, [
+    alignedFrame,
+    frame,
+    showBoxes,
+    showHead,
+    showBody,
+    showDensity,
+    videoUrl,
+    connection,
+    backendError,
+  ]);
 
   // Draw MJPEG into a canvas so we can sync overlays by frame_id (X-Frame-Id).
   useEffect(() => {
@@ -191,7 +250,13 @@ export function VideoOverlay({ frame, getFrameById, showBoxes, showHead, showBod
     const headersSep = encoder.encode('\r\n\r\n');
     const textDecoder = new TextDecoder();
 
-    let buffer = new Uint8Array(0);
+    const copyBytes = (src: Uint8Array): Uint8Array => {
+      const out = new Uint8Array(src.byteLength);
+      out.set(src);
+      return out;
+    };
+
+    let buffer: Uint8Array = new Uint8Array(0);
     let decoding = false;
     let pending: { jpg: Uint8Array; frameId: number | null } | null = null;
 
@@ -202,7 +267,8 @@ export function VideoOverlay({ frame, getFrameById, showBoxes, showHead, showBod
       const item = pending;
       pending = null;
       try {
-        const blob = new Blob([item.jpg], { type: 'image/jpeg' });
+        const safeJpg = copyBytes(item.jpg);
+        const blob = new Blob([safeJpg.buffer as ArrayBuffer], { type: 'image/jpeg' });
         const bitmap = await createImageBitmap(blob);
         drawCover(vctx, bitmap, canvasSize.w, canvasSize.h);
         bitmap.close();
@@ -218,7 +284,7 @@ export function VideoOverlay({ frame, getFrameById, showBoxes, showHead, showBod
           }
         }
       } catch {
-        // ignore
+        // Intentionally ignore decode errors (stream may contain partial frames during reconnect).
       } finally {
         decoding = false;
         if (pending) void kickDecode();
@@ -276,7 +342,7 @@ export function VideoOverlay({ frame, getFrameById, showBoxes, showHead, showBod
             if (contentLength !== null) {
               const end = bodyStart + contentLength;
               if (buffer.length < end) break;
-              const jpg = buffer.slice(bodyStart, end);
+              const jpg = copyBytes(buffer.slice(bodyStart, end));
               buffer = buffer.slice(end);
 
               // Optional CRLF after body.
@@ -292,7 +358,7 @@ export function VideoOverlay({ frame, getFrameById, showBoxes, showHead, showBod
             // Fallback if Content-Length is missing: use boundary search.
             const nb = indexOfBytes(buffer, encoder.encode('\r\n--frame'), bodyStart);
             if (nb === -1) break;
-            const jpg = buffer.slice(bodyStart, nb);
+            const jpg = copyBytes(buffer.slice(bodyStart, nb));
             buffer = buffer.slice(nb + 2);
 
             // If decoding can't keep up, keep only the most recent frame.
@@ -301,7 +367,7 @@ export function VideoOverlay({ frame, getFrameById, showBoxes, showHead, showBod
           }
         }
       } catch {
-        // ignore
+        // Intentionally ignore fetch/parse errors during teardown/reconnect.
       }
     };
 
@@ -321,6 +387,20 @@ export function VideoOverlay({ frame, getFrameById, showBoxes, showHead, showBod
     }
   }, [frame, getFrameById]);
 
+  const currentFrame = alignedFrame ?? frame;
+  const infoText = (() => {
+    if (!currentFrame) return 'Buffering…';
+    const streamPart =
+      typeof currentFrame.stream_fps === 'number'
+        ? ` / ${currentFrame.stream_fps.toFixed(1)} stream`
+        : '';
+    const latencyPart =
+      typeof currentFrame.latency_ms === 'number'
+        ? ` / ${currentFrame.latency_ms.toFixed(0)} ms`
+        : '';
+    return `${currentFrame.fps.toFixed(1)} infer${streamPart} fps / ${currentFrame.persons.length} people${latencyPart}`;
+  })();
+
   return (
     <div
       ref={containerRef}
@@ -331,11 +411,7 @@ export function VideoOverlay({ frame, getFrameById, showBoxes, showHead, showBod
       <div className="absolute left-3 bottom-3 text-sm text-slate-200 bg-slate-900/60 px-3 py-1 rounded-full space-x-2 flex items-center">
         <span className="text-xs uppercase tracking-wide text-slate-400">{connection}</span>
         <span>•</span>
-        <span>
-          {(alignedFrame || frame)
-            ? `${(alignedFrame || frame)!.fps.toFixed(1)} infer${typeof (alignedFrame || frame)!.stream_fps === 'number' ? ` / ${(alignedFrame || frame)!.stream_fps.toFixed(1)} stream` : ''} fps / ${(alignedFrame || frame)!.persons.length} people${typeof (alignedFrame || frame)!.latency_ms === 'number' ? ` / ${(alignedFrame || frame)!.latency_ms.toFixed(0)} ms` : ''}`
-            : 'Buffering…'}
-        </span>
+        <span>{infoText}</span>
         {backendError && <span className="text-red-400">({backendError})</span>}
       </div>
     </div>

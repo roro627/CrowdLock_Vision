@@ -4,12 +4,13 @@ from dataclasses import dataclass
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
-from backend.api.main import app
 import backend.api.routes.config as config_routes
+from backend.api.main import app
+from backend.api.services import state as engine_state
 from backend.core.config.settings import BackendSettings
 from backend.core.types import FrameSummary
-from backend.api.services import state as engine_state
 
 
 def test_lifespan_calls_stop_engine(monkeypatch: pytest.MonkeyPatch):
@@ -145,7 +146,7 @@ def test_stream_metadata_handles_engine_crash():
         client = TestClient(app)
         with client.websocket_connect("/stream/metadata") as ws:
             # Server should close on crash; receive should error quickly.
-            with pytest.raises(Exception):
+            with pytest.raises(WebSocketDisconnect):
                 ws.receive_json()
     finally:
         engine_state._engine = previous

@@ -1,6 +1,5 @@
-import types
-
 import asyncio
+import types
 
 import numpy as np
 
@@ -86,7 +85,9 @@ def test_capture_process_encode_loops_smoke(monkeypatch):
 
     def _process(_frame, inference_width=None, inference_stride=None):
         engine.running = False
-        summary = FrameSummary(frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(20, 20))
+        summary = FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(20, 20)
+        )
         return summary, _frame
 
     engine.pipeline = types.SimpleNamespace(process=_process)
@@ -155,7 +156,7 @@ def test_start_guard_does_not_reinit(monkeypatch):
 def test_start_success_creates_threads_and_sets_running(monkeypatch):
     engine = _make_engine(monkeypatch)
 
-    engine._make_source = (lambda: types.SimpleNamespace(read=lambda: None, close=lambda: None))  # type: ignore[assignment]
+    engine._make_source = lambda: types.SimpleNamespace(read=lambda: None, close=lambda: None)  # type: ignore[assignment]
 
     created = {"threads": 0, "starts": 0}
 
@@ -272,14 +273,23 @@ def test_process_loop_drops_old_encode_frame_when_queue_full(monkeypatch):
 
     def _process(_frame, inference_width=None, inference_stride=None):
         engine.running = False
-        summary = FrameSummary(frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10))
+        summary = FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+        )
         return summary, _frame
 
     engine.pipeline = types.SimpleNamespace(process=_process)
     engine.source = types.SimpleNamespace(close=lambda: None)
 
     # Pre-fill queue to make it full.
-    engine._encode_queue.put_nowait((frame, FrameSummary(frame_id=0, timestamp=0.0, persons=[], density={}, fps=0.0, frame_size=(10, 10))))
+    engine._encode_queue.put_nowait(
+        (
+            frame,
+            FrameSummary(
+                frame_id=0, timestamp=0.0, persons=[], density={}, fps=0.0, frame_size=(10, 10)
+            ),
+        )
+    )
 
     engine._capture_event.set()
     engine._latest_captured_frame = frame
@@ -320,7 +330,9 @@ def test_process_loop_updates_avg_processing_time_on_second_frame(monkeypatch):
         calls["n"] += 1
         if calls["n"] >= 2:
             engine.running = False
-        summary = FrameSummary(frame_id=calls["n"], timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10))
+        summary = FrameSummary(
+            frame_id=calls["n"], timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+        )
         return summary, _frame
 
     engine.pipeline = types.SimpleNamespace(process=_process)
@@ -352,7 +364,9 @@ def test_process_loop_queue_full_get_nowait_empty_is_ignored(monkeypatch):
 
     def _process(_frame, inference_width=None, inference_stride=None):
         engine.running = False
-        summary = FrameSummary(frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10))
+        summary = FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+        )
         return summary, _frame
 
     engine.pipeline = types.SimpleNamespace(process=_process)
@@ -378,7 +392,9 @@ def test_process_loop_enqueue_exception_is_logged(monkeypatch):
 
     def _process(_frame, inference_width=None, inference_stride=None):
         engine.running = False
-        summary = FrameSummary(frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10))
+        summary = FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+        )
         return summary, _frame
 
     engine.pipeline = types.SimpleNamespace(process=_process)
@@ -402,7 +418,9 @@ def test_process_loop_sleeps_to_match_target_fps(monkeypatch):
 
     def _process(_frame, inference_width=None, inference_stride=None):
         engine.running = False
-        summary = FrameSummary(frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10))
+        summary = FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+        )
         return summary, _frame
 
     engine.pipeline = types.SimpleNamespace(process=_process)
@@ -431,10 +449,14 @@ def test_async_generators_execute_sleep_lines(monkeypatch):
         await agen.aclose()
 
         # metadata_stream: sleep executes between yields
-        engine._latest_summary = FrameSummary(frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(1, 1))
+        engine._latest_summary = FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(1, 1)
+        )
         mgen = engine.metadata_stream()
         _ = await mgen.__anext__()
-        engine._latest_summary = FrameSummary(frame_id=2, timestamp=2.0, persons=[], density={}, fps=1.0, frame_size=(1, 1))
+        engine._latest_summary = FrameSummary(
+            frame_id=2, timestamp=2.0, persons=[], density={}, fps=1.0, frame_size=(1, 1)
+        )
         _ = await mgen.__anext__()
         await mgen.aclose()
 
@@ -459,7 +481,7 @@ def test_encode_loop_timeout_and_empty_queue(monkeypatch):
     def _clear():
         cleared["n"] += 1
 
-    engine._encode_event.wait = (lambda timeout=None: (engine.__setattr__("running", False) or True))  # type: ignore[assignment]
+    engine._encode_event.wait = lambda timeout=None: (engine.__setattr__("running", False) or True)  # type: ignore[assignment]
     engine._encode_event.clear = _clear  # type: ignore[assignment]
     engine.running = True
     engine._encode_loop()
@@ -469,7 +491,14 @@ def test_encode_loop_timeout_and_empty_queue(monkeypatch):
 def test_encode_loop_imencode_not_ok_and_exception(monkeypatch):
     engine = _make_engine(monkeypatch, output_width=None)
     frame = np.zeros((10, 10, 3), dtype=np.uint8)
-    engine._encode_queue.put_nowait((frame, FrameSummary(frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10))))
+    engine._encode_queue.put_nowait(
+        (
+            frame,
+            FrameSummary(
+                frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+            ),
+        )
+    )
     engine._encode_event.set()
 
     def _imencode_fail(*_a, **_k):
@@ -482,7 +511,14 @@ def test_encode_loop_imencode_not_ok_and_exception(monkeypatch):
 
     # Exception path
     engine = _make_engine(monkeypatch, output_width=None)
-    engine._encode_queue.put_nowait((frame, FrameSummary(frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10))))
+    engine._encode_queue.put_nowait(
+        (
+            frame,
+            FrameSummary(
+                frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+            ),
+        )
+    )
     engine._encode_event.set()
 
     def _imencode_boom(*_a, **_k):
@@ -502,14 +538,23 @@ def test_encode_loop_updates_stream_fps(monkeypatch):
     engine._stream_fps = 10.0
     engine._last_encoded_at = 1.0
 
-    monkeypatch.setattr(eng.cv2, "imencode", lambda *_a, **_k: (True, types.SimpleNamespace(tobytes=lambda: b"jpg")))
+    monkeypatch.setattr(
+        eng.cv2, "imencode", lambda *_a, **_k: (True, types.SimpleNamespace(tobytes=lambda: b"jpg"))
+    )
     monkeypatch.setattr(eng.time, "time", lambda: 2.0)
 
-    engine._encode_queue.put_nowait((frame, FrameSummary(frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10))))
+    engine._encode_queue.put_nowait(
+        (
+            frame,
+            FrameSummary(
+                frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+            ),
+        )
+    )
     engine._encode_event.set()
 
     # Stop after one iteration.
-    engine._encode_event.wait = (lambda timeout=None: (engine.__setattr__("running", False) or True))  # type: ignore[assignment]
+    engine._encode_event.wait = lambda timeout=None: (engine.__setattr__("running", False) or True)  # type: ignore[assignment]
     engine.running = True
     engine._encode_loop()
     assert engine.stream_fps() > 0.0
