@@ -64,7 +64,11 @@ def check_commands() -> list[CheckResult]:
     results: list[CheckResult] = []
 
     python_ver = platform.python_version()
-    results.append(CheckResult("python", True, f"{sys.executable} (Python {python_ver})"))
+    is_py312 = sys.version_info[:2] == (3, 12)
+    py_detail = f"{sys.executable} (Python {python_ver})"
+    if not is_py312:
+        py_detail += " (expected Python 3.12.x)"
+    results.append(CheckResult("python", is_py312, py_detail))
 
     for cmd in ("node", "npm", "docker"):
         path = _which(cmd)

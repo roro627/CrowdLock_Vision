@@ -5,7 +5,7 @@
 **Real-time multi-person detection, tracking & analytics**  
 *CPU-optimized vision pipeline with frame-perfect overlay synchronization*
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-teal.svg)](https://fastapi.tiangolo.com/)
@@ -33,6 +33,8 @@
 ## 🚀 Quick Start
 
 ### The fastest way to get started
+
+**Requirements:** Python 3.12, Node.js + npm, and Docker (recommended for the backend).
 
 ```bash
 # 1. Check your environment
@@ -72,7 +74,7 @@ make dev
 
 ## 🔧 Manual Setup (Advanced)
 
-1. Create and activate a Python env (example: `python3 -m venv .venv && source .venv/bin/activate`).
+1. Create and activate a Python env (example: `python3.12 -m venv .venv && source .venv/bin/activate`).
 2. Install backend deps (CPU torch):
 
    ```bash

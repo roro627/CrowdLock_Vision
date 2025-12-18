@@ -116,7 +116,7 @@ The project is split into **clearly separated modules and folders** to keep deve
 
 ### 3.1 High‑Level Components
 
-1. **Core Vision Backend** (Python or another suitable language for CV/ML):
+1. **Core Vision Backend** (Python 3.12, or another suitable language for CV/ML):
 
    * Handles video capture, detection, pose estimation, tracking, and analytics.
    * Exposes a clean internal interface returning structured data per frame (persons, targets, density map, etc.).
