@@ -13,6 +13,8 @@ config/backend.config.yml
 yolov8n.pt
 yolov8n-pose.pt
 yolov8n.onnx
+yolo11*.pt
+yolo11*.onnx
 
 # Python
 .venv/

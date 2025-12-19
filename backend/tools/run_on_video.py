@@ -93,7 +93,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run vision pipeline on a video")
     parser.add_argument("--input", required=True, help="Path to video file")
     parser.add_argument("--output", required=True, help="Where to save JSON output")
-    parser.add_argument("--model", default="yolov8n-pose.pt")
+    parser.add_argument("--model", default="yolo11l.pt")
     parser.add_argument("--conf", type=float, default=0.35)
     parser.add_argument("--grid-size", default="10x10", help="e.g. 8x8")
     parser.add_argument("--smoothing", type=float, default=0.2)

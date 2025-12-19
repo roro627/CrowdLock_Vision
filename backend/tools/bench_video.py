@@ -81,7 +81,7 @@ def run_once(video_path: str, settings: dict[str, Any]) -> dict[str, Any]:
     smoothing = float(settings.get("smoothing", 0.2))
 
     detector = YoloPersonDetector(
-        model_name=str(settings.get("model_name", "yolov8n-pose.pt")),
+        model_name=str(settings.get("model_name", "yolo11l.pt")),
         conf=float(settings.get("confidence", 0.35)),
         task=settings.get("model_task"),
     )
@@ -300,7 +300,7 @@ def main() -> None:
         default="testdata/videos",
         help="Video file path or a directory containing videos (default: testdata/videos)",
     )
-    parser.add_argument("--model", default="yolov8n-pose.pt")
+    parser.add_argument("--model", default="yolo11l.pt")
     parser.add_argument(
         "--task",
         default="auto",

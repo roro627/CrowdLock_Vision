@@ -1,7 +1,7 @@
 video_source: file
 video_path: testdata/videos/855564-hd_1920_1080_24fps.mp4
 rtsp_url: null
-model_name: yolov8n.pt
+model_name: yolo11l.pt
 # Task override: auto|detect|pose. On CPU, 'detect' is much faster.
 model_task: detect
 confidence: 0.35

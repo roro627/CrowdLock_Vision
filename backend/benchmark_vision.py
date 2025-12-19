@@ -45,13 +45,13 @@ def run_benchmark(
     print(f"Duration: {duration_sec}s")
     print(f"Optimize: {optimize}")
 
-    model_name = "yolov8n.pt"
+    model_name = "yolo11l.pt"
     if optimize:
         # Keep the project CPU-only: prevent Ultralytics from auto-installing GPU runtimes
         # (e.g. onnxruntime-gpu) during export.
         os.environ.setdefault("ULTRALYTICS_AUTOUPDATE", "0")
 
-        onnx_path = "yolov8n.onnx"
+        onnx_path = "yolo11l.onnx"
         if os.path.exists(onnx_path):
             print(f"Found existing optimized model: {onnx_path}")
             model_name = onnx_path

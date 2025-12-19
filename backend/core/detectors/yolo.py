@@ -29,15 +29,15 @@ class YoloPersonDetector:
 
     def __init__(
         self,
-        model_name: str = "yolov8n-pose.pt",
+        model_name: str = "yolo11l.pt",
         conf: float = 0.3,
         task: str | None = None,
     ):
         """Create a detector.
 
         Args:
-            model_name: Model path/name understood by Ultralytics (e.g. `yolov8n.pt`,
-                `yolov8n-pose.pt`, or an `.onnx` export).
+            model_name: Model path/name understood by Ultralytics (e.g. `yolo11l.pt`,
+                `yolo11l-pose.pt`, or an `.onnx` export).
             conf: Confidence threshold applied inside the Ultralytics predictor.
             task: Optional Ultralytics task override.
         """

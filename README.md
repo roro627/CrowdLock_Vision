@@ -20,7 +20,7 @@
 ## ✨ Features
 
 - 🎥 **Multi-source support**: Webcam, video files, or RTSP streams
-- 🧠 **YOLOv8 pose estimation**: CPU-optimized inference with configurable stride
+- 🧠 **YOLO11 inference**: CPU-optimized detection/pose with configurable stride
 - 🎯 **Stable tracking**: Persistent IDs across frames with head/body center points
 - 📊 **Density heatmaps**: Grid-based crowd analytics with smoothing
 - ⚡ **Low-latency streaming**: MJPEG + WebSocket with frame-ID synchronization
@@ -57,7 +57,7 @@ make dev
 
 ```.
 📁 CrowdLock_Vision/
-├── 🐍 backend/         # FastAPI + vision pipeline (YOLOv8 pose)
+├── 🐍 backend/         # FastAPI + vision pipeline (Ultralytics YOLO11)
 │   ├── api/           # REST routes & WebSocket endpoints
 │   ├── core/          # Detectors, trackers, analytics, video sources
 │   └── tools/         # CLI utilities (bench, run-on-video)
@@ -138,7 +138,7 @@ make dev
 | Setting | Options | Description |
 |---------|---------|-------------|
 | `video_source` | `webcam`, `file`, `rtsp` | Input source type |
-| `model_name` | `yolov8n.pt`, `yolov8n-pose.pt` | YOLO model variant |
+| `model_name` | `yolo11l.pt`, `yolo11l-pose.pt` | YOLO model variant |
 | `confidence` | `0.0` – `1.0` | Detection threshold |
 | `grid_size` | `10x10`, `16x16`, etc. | Density heatmap resolution |
 | `inference_width` | `640`, `320`, etc. | Detector input size (↓ = faster) |
@@ -258,7 +258,7 @@ Ultralytics auto-downloads models on first run. We disable GPU runtime auto-inst
 ## 📦 Models & Assets
 
 - **YOLO weights**: Auto-downloaded by Ultralytics on first inference (not versioned in repo)
-- **Supported models**: `yolov8n.pt`, `yolov8n-pose.pt`, `yolov8s-pose.pt`, etc.
+- **Supported models**: `yolo11l.pt`, `yolo11l-pose.pt`, `yolo11s.pt`, etc.
 - **Storage**: Models cached in `~/.cache/ultralytics/` (or `TORCH_HOME`)
 
 ---

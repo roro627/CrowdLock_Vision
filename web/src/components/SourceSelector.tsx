@@ -9,7 +9,7 @@ const defaultCfg: BackendConfig = {
   video_source: 'webcam',
   video_path: '',
   rtsp_url: '',
-  model_name: 'yolov8n-pose.pt',
+  model_name: 'yolo11l.pt',
   confidence: 0.35,
   grid_size: '10x10',
   smoothing: 0.2,

@@ -3,7 +3,7 @@ uvicorn[standard]==0.30.6
 pydantic==1.10.18
 # pydantic-settings requires pydantic>=2; we rely on pydantic v1 BaseSettings instead.
 opencv-python-headless==4.10.0.84
-ultralytics==8.3.14
+ultralytics==8.3.240
 # CPU-only Torch to keep image small; compatible with ultralytics.
 # Needed for local installs because `torch==...+cpu` wheels are hosted on PyTorch index, not PyPI.
 --extra-index-url https://download.pytorch.org/whl/cpu

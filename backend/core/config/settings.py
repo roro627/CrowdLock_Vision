@@ -16,9 +16,14 @@ import pydantic
 import yaml
 from pydantic import Field
 
-_field_validator: Callable[..., Any] = (
-    getattr(pydantic, "field_validator", None) or pydantic.validator
-)
+_pydantic_field_validator = getattr(pydantic, "field_validator", None)
+if _pydantic_field_validator is not None:
+    _field_validator: Callable[..., Any] = _pydantic_field_validator
+else:
+    # Pydantic v1: allow module reloads in tests without "duplicate validator" errors.
+    def _field_validator(*args: Any, **kwargs: Any) -> Callable[..., Any]:
+        kwargs.setdefault("allow_reuse", True)
+        return pydantic.validator(*args, **kwargs)
 
 try:
     _pydantic_settings = importlib.import_module("pydantic_settings")
@@ -45,9 +50,8 @@ class BackendSettings(BaseSettings):
     video_source: str = Field("file", description="webcam|file|rtsp")
     video_path: str | None = None
     rtsp_url: str | None = None
-    # Default to the plain detection model for CPU performance.
-    # The pose model is supported but significantly slower on CPU.
-    model_name: str = Field("yolov8n.pt")
+    # Default to YOLO11 large. For better CPU throughput, consider yolo11n.pt/yolo11s.pt.
+    model_name: str = Field("yolo11l.pt")
     # Ultralytics task override: None/"auto" uses the model default.
     # "detect" is significantly faster than "pose" on CPU.
     model_task: str | None = Field(default="detect", description="auto|detect|pose")

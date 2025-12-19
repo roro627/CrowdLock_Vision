@@ -19,7 +19,8 @@ def main() -> int:
 
     try:
         print("Loading model...")
-        model = YOLO("yolov8n.pt")
+        model_name = os.getenv("CLV_MODEL_NAME", "yolo11l.pt")
+        model = YOLO(model_name)
         print("Exporting to ONNX...")
         model.export(format="onnx", device="cpu")
         print("Success!")
