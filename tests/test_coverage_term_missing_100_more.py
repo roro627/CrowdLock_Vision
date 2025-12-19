@@ -931,24 +931,6 @@ def test_settings_import_branches_are_coverable(monkeypatch: pytest.MonkeyPatch)
     assert imported2.BackendSettings is not None
 
 
-def test_settings_module_not_found_branch(monkeypatch: pytest.MonkeyPatch):
-    """Force pydantic_settings import to fail to cover v1 BaseSettings + inner Config."""
-
-    mod_name = settings_mod.__name__
-    real_import_module = importlib.import_module
-
-    def _import_module(name: str, package: str | None = None):
-        if name == "pydantic_settings":
-            raise ModuleNotFoundError("nope")
-        return real_import_module(name, package)
-
-    sys.modules.pop(mod_name, None)
-    monkeypatch.setattr(importlib, "import_module", _import_module)
-    imported = importlib.import_module(mod_name)
-    assert getattr(imported, "SettingsConfigDict") is None
-    assert hasattr(imported.BackendSettings, "Config")
-
-
 def test_yolo_inference_mode_path(monkeypatch: pytest.MonkeyPatch):
     # Avoid importing real ultralytics/torch behavior.
     class _Ctx:

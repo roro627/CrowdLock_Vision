@@ -6,10 +6,10 @@
 *CPU-optimized vision pipeline with frame-perfect overlay synchronization*
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-teal.svg)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18+-61dafb.svg)](https://react.dev/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.125+-teal.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19+-61dafb.svg)](https://react.dev/)
 
 [Features](#-features) • [Quick Start](#-quick-start) • [API](#-api-reference) • [Troubleshooting](#-troubleshooting)
 
@@ -101,7 +101,7 @@ make dev
 ### Development Stack Options
 
 | Command | Backend | Use Case |
-|---------|---------|----------|
+| --- | --- | --- |
 | `make dev` | Docker | **Recommended** – isolated, reproducible |
 | `make dev-local` | Local uvicorn | Fast iteration, debugging |
 | `python scripts/dev/start_stack.py` | Configurable | Custom flags |
@@ -123,6 +123,7 @@ make dev
 3. Open <http://localhost:5173> and watch the pipeline process a pre-recorded crowd scene
 
 > This validates the full stack (detection → tracking → analytics → streaming → overlays) without hardware dependencies.
+> **Model weights**: Ultralytics downloads weights on first run if the file is missing. For offline use, drop the `.pt`/`.onnx` file in the repo root or point `model_name` to a local path.
 
 ---
 
@@ -136,9 +137,9 @@ make dev
 2. Adjust key settings:
 
 | Setting | Options | Description |
-|---------|---------|-------------|
+| --- | --- | --- |
 | `video_source` | `webcam`, `file`, `rtsp` | Input source type |
-| `model_name` | `yolo11l.pt`, `yolo11l-pose.pt` | YOLO model variant |
+| `model_name` | `yolo11l.pt`, `yolo11l-pose.pt` | YOLO model variant (auto-downloads if missing) |
 | `confidence` | `0.0` – `1.0` | Detection threshold |
 | `grid_size` | `10x10`, `16x16`, etc. | Density heatmap resolution |
 | `inference_width` | `640`, `320`, etc. | Detector input size (↓ = faster) |
@@ -160,7 +161,7 @@ export CLV_CONFIDENCE=0.4
 ### REST Endpoints
 
 | Endpoint | Method | Description |
-|----------|--------|-------------|
+| --- | --- | --- |
 | `/health` | GET | Service health check |
 | `/config` | GET / POST | View or update runtime configuration |
 | `/stats` | GET | Aggregate analytics (people count, FPS, density) |
@@ -169,7 +170,7 @@ export CLV_CONFIDENCE=0.4
 ### WebSocket
 
 | Endpoint | Protocol | Payload |
-|----------|----------|---------|
+| --- | --- | --- |
 | `/stream/metadata` | WS | Per-frame JSON: `{frame_id, timestamp, persons[], density{}, fps, stream_fps}` |
 
 **Interactive docs**: <http://localhost:8000/docs> (Swagger UI)
@@ -226,7 +227,7 @@ cd web && npm test
 ## 🩺 Troubleshooting
 
 | Symptom | Solution |
-|---------|----------|
+| --------- | ---------- |
 | 🖥️ **Web UI is black** | Ensure backend is running: <http://localhost:8000/health> |
 | 📷 **Webcam not detected** | Switch to [Demo Mode](#demo-mode-no-webcam-needed) to validate pipeline |
 | 🚪 **Port already in use** | Change ports in `Makefile` or stop conflicting process |
@@ -258,7 +259,7 @@ Ultralytics auto-downloads models on first run. We disable GPU runtime auto-inst
 ## 📦 Models & Assets
 
 - **YOLO weights**: Auto-downloaded by Ultralytics on first inference (not versioned in repo)
-- **Supported models**: `yolo11l.pt`, `yolo11l-pose.pt`, `yolo11s.pt`, etc.
+- **Supported models**: `yolo11l.pt`, `yolo11l-pose.pt`, `yolo11s.pt`, etc. (weights auto-download on first run)
 - **Storage**: Models cached in `~/.cache/ultralytics/` (or `TORCH_HOME`)
 
 ---

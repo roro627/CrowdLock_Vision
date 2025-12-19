@@ -9,7 +9,7 @@ FRONTEND_PORT ?= 5173
 BACKEND_MODE ?= docker
 COMPOSE_CMD ?= docker compose
 
-.PHONY: help setup install-backend install-frontend backend frontend dev dev-local doctor
+.PHONY: help setup install-backend install-frontend backend frontend dev dev-local doctor clean
 
 help:
 	@echo "Available targets:"
@@ -21,6 +21,7 @@ help:
 	@echo "  dev               Start backend (docker by default) + frontend via start_stack.py"
 	@echo "  dev-local         Run dev target with BACKEND_MODE=local"
 	@echo "  doctor            Check environment + project sanity"
+	@echo "  clean             Remove temporary files/caches (incl. .venv and web/node_modules)"
 
 setup: install-backend install-frontend
 
@@ -44,3 +45,28 @@ dev-local:
 
 doctor:
 	$(PYTHON) scripts/dev/doctor.py
+
+clean:
+	@echo "Cleaning temporary files and folders..."
+	@rm -rf \
+		.pytest_cache \
+		.ruff_cache \
+		.mypy_cache \
+		.hypothesis \
+		.nox \
+		.tox \
+		.coverage \
+		htmlcov \
+		build \
+		dist \
+		*.egg-info \
+		.eggs \
+		.venv \
+		web/dist \
+		web/.vite \
+		web/coverage \
+		web/.coverage \
+		web/node_modules
+	@find . -type d -name "__pycache__" -prune -exec rm -rf {} +
+	@find . -type f -name "*.py[co]" -delete
+	@echo "Done."

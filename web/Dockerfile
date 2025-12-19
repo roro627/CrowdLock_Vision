@@ -1,8 +1,12 @@
-FROM node:20-alpine as builder
+# syntax=docker/dockerfile:1.7
+FROM node:22-alpine AS builder
+
 ARG VITE_API_BASE=http://localhost:8000
 WORKDIR /app
-COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
-RUN if [ -f package-lock.json ]; then npm ci; elif [ -f pnpm-lock.yaml ]; then npm install -g pnpm && pnpm install; elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; else npm install; fi
+
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+
 COPY . .
 RUN echo "VITE_API_BASE=${VITE_API_BASE}" > .env.production
 RUN npm run build

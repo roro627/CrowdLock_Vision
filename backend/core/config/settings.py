@@ -6,42 +6,13 @@ prefixed with `CLV_`.
 
 from __future__ import annotations
 
-import importlib
 import os
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
-import pydantic
 import yaml
-from pydantic import Field
-
-_pydantic_field_validator = getattr(pydantic, "field_validator", None)
-if _pydantic_field_validator is not None:
-    _field_validator: Callable[..., Any] = _pydantic_field_validator
-else:
-    # Pydantic v1: allow module reloads in tests without "duplicate validator" errors.
-    def _field_validator(*args: Any, **kwargs: Any) -> Callable[..., Any]:
-        kwargs.setdefault("allow_reuse", True)
-        return pydantic.validator(*args, **kwargs)
-
-try:
-    _pydantic_settings = importlib.import_module("pydantic_settings")
-except ModuleNotFoundError:
-    _pydantic_settings = None
-
-if _pydantic_settings is not None:
-    BaseSettings = cast(Any, _pydantic_settings.BaseSettings)
-    SettingsConfigDict = getattr(_pydantic_settings, "SettingsConfigDict", None)
-else:
-    try:
-        # Pydantic v1
-        from pydantic import BaseSettings
-    except Exception:
-        # Pydantic v2: BaseSettings moved to pydantic.v1 (or pydantic-settings).
-        from pydantic.v1 import BaseSettings
-
-    SettingsConfigDict = None
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class BackendSettings(BaseSettings):
@@ -85,33 +56,30 @@ class BackendSettings(BaseSettings):
     jpeg_quality: int = 70
     enable_backend_overlays: bool = False
 
-    # Pydantic v2 uses model_config; Pydantic v1 uses inner Config.
-    if SettingsConfigDict is not None:
-        model_config = SettingsConfigDict(env_prefix="CLV_", validate_assignment=True)
-    else:
+    model_config = SettingsConfigDict(env_prefix="CLV_", validate_assignment=True)
 
-        class Config:
-            env_prefix = "CLV_"
-            validate_assignment = True
-
-    @_field_validator("confidence")
+    @field_validator("confidence")
+    @classmethod
     def _validate_confidence(cls, v: float) -> float:
         if not 0.0 < v <= 1.0:
             raise ValueError("confidence must be in (0, 1]")
         return v
 
-    @_field_validator("grid_size")
+    @field_validator("grid_size")
+    @classmethod
     def _validate_grid(cls, v: str) -> str:
         _parse_grid(v)  # will raise if invalid
         return v
 
-    @_field_validator("video_source")
+    @field_validator("video_source")
+    @classmethod
     def _validate_source(cls, v: str) -> str:
         if v not in {"webcam", "file", "rtsp"}:
             raise ValueError("video_source must be webcam|file|rtsp")
         return v
 
-    @_field_validator("model_task")
+    @field_validator("model_task")
+    @classmethod
     def _validate_model_task(cls, v: str | None) -> str | None:
         if v is None:
             return None
@@ -122,7 +90,8 @@ class BackendSettings(BaseSettings):
             raise ValueError("model_task must be auto|detect|pose")
         return v2
 
-    @_field_validator("output_width")
+    @field_validator("output_width")
+    @classmethod
     def _validate_output_width(cls, v: int | None) -> int | None:
         if v is None:
             return v
@@ -130,13 +99,15 @@ class BackendSettings(BaseSettings):
             raise ValueError("output_width must be > 0")
         return v
 
-    @_field_validator("inference_stride")
+    @field_validator("inference_stride")
+    @classmethod
     def _validate_inference_stride(cls, v: int) -> int:
         if v <= 0:
             raise ValueError("inference_stride must be >= 1")
         return v
 
-    @_field_validator("target_fps")
+    @field_validator("target_fps")
+    @classmethod
     def _validate_target_fps(cls, v: float | None) -> float | None:
         if v is None:
             return v
@@ -144,49 +115,57 @@ class BackendSettings(BaseSettings):
             raise ValueError("target_fps must be >= 0")
         return float(v)
 
-    @_field_validator("roi_track_margin")
+    @field_validator("roi_track_margin")
+    @classmethod
     def _validate_roi_track_margin(cls, v: float) -> float:
         if v < 0:
             raise ValueError("roi_track_margin must be >= 0")
         return float(v)
 
-    @_field_validator("roi_entry_band")
+    @field_validator("roi_entry_band")
+    @classmethod
     def _validate_roi_entry_band(cls, v: float) -> float:
         if v < 0:
             raise ValueError("roi_entry_band must be >= 0")
         return float(v)
 
-    @_field_validator("roi_merge_iou")
+    @field_validator("roi_merge_iou")
+    @classmethod
     def _validate_roi_merge_iou(cls, v: float) -> float:
         if not 0.0 <= float(v) <= 1.0:
             raise ValueError("roi_merge_iou must be in [0, 1]")
         return float(v)
 
-    @_field_validator("roi_max_area_fraction")
+    @field_validator("roi_max_area_fraction")
+    @classmethod
     def _validate_roi_max_area_fraction(cls, v: float) -> float:
         if not 0.0 < float(v) <= 1.0:
             raise ValueError("roi_max_area_fraction must be in (0, 1]")
         return float(v)
 
-    @_field_validator("roi_full_frame_every_n")
+    @field_validator("roi_full_frame_every_n")
+    @classmethod
     def _validate_roi_full_frame_every_n(cls, v: int) -> int:
         if int(v) < 0:
             raise ValueError("roi_full_frame_every_n must be >= 0")
         return int(v)
 
-    @_field_validator("roi_force_full_frame_on_track_loss")
+    @field_validator("roi_force_full_frame_on_track_loss")
+    @classmethod
     def _validate_roi_force_full_frame_on_track_loss(cls, v: float) -> float:
         if not 0.0 <= float(v) <= 1.0:
             raise ValueError("roi_force_full_frame_on_track_loss must be in [0, 1]")
         return float(v)
 
-    @_field_validator("roi_detections_nms_iou")
+    @field_validator("roi_detections_nms_iou")
+    @classmethod
     def _validate_roi_detections_nms_iou(cls, v: float) -> float:
         if not 0.0 <= float(v) <= 1.0:
             raise ValueError("roi_detections_nms_iou must be in [0, 1]")
         return float(v)
 
-    @_field_validator("density_hotspot_max_area_fraction")
+    @field_validator("density_hotspot_max_area_fraction")
+    @classmethod
     def _validate_density_hotspot_max_area_fraction(cls, v: float) -> float:
         if not 0.0 < float(v) <= 1.0:
             raise ValueError("density_hotspot_max_area_fraction must be in (0, 1]")
@@ -194,20 +173,15 @@ class BackendSettings(BaseSettings):
 
 
 def settings_to_dict(settings: BackendSettings) -> dict[str, Any]:
-    """Convert settings to a plain dict (supports Pydantic v1 and v2)."""
+    """Convert settings to a plain dict."""
 
-    if hasattr(settings, "model_dump"):
-        return cast(dict[str, Any], settings.model_dump())
-    return cast(dict[str, Any], settings.dict())
+    return cast(dict[str, Any], settings.model_dump())
 
 
 def _fields_set(obj: object) -> set[str]:
     """Return the set of fields explicitly provided/overridden on a Pydantic model."""
-
     fields_set = getattr(obj, "model_fields_set", None)
-    if fields_set is not None:
-        return set(fields_set)
-    return set(getattr(obj, "__fields_set__", set()))
+    return set(fields_set or set())
 
 
 def _parse_grid(grid: str) -> tuple[int, int]:

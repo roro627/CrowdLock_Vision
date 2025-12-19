@@ -28,6 +28,34 @@
 - Web app (`web/`) uses `VITE_API_BASE` (see `web/src/api/client.ts`) and renders overlays client-side
   (`web/src/components/VideoOverlay.tsx`).
 
+## Developement environment
+
+You has access to external tools and should use them when it improves correctness and relevance:
+
+- **Context7**: fetch up-to-date library documentation and code examples (preferred when APIs may have changed).
+- **Playwright**: drive a real browser to validate UI behavior, reproduce issues, or inspect pages.
+- **web_search**: find general information and examples when the answer is not in the repo (useful for quick
+  references and edge cases).
+
+## Development rules
+
+1. **DRY (Don't Repeat Yourself)**: avoid duplicating logic; extract shared helpers when reuse is real.
+2. **KISS (Keep It Simple)**: prefer simple, explicit code over “clever” abstractions; most functions should be
+  short and focused.
+3. **Language**: all identifiers, comments, and documentation must be written in English.
+4. **Docstrings**: every function must have a docstring describing what it does, its input parameters, and its
+  return values (use the language-appropriate docstring style; for Python, prefer standard triple-quoted
+  docstrings with type hints in the signature).
+5. **Dependencies**: prefer widely used, well-maintained packages.
+6. **Before adding a dependency**: check the official documentation and the date of the latest release; prefer
+  libraries with clear maintenance and licensing.
+7. **If a dependency is niche/risky**: justify the choice in this document and wrap it behind a small adapter
+  module so it can be replaced later.
+8. **No magic numbers**: avoid scattering hard-coded constants; name and centralize them.
+9. **Centralize configuration**: behavior knobs must live in the project's configuration layer (for this repo:
+  YAML defaults + `CLV_` environment overrides in `backend/core/config/settings.py` and `config/*.yml`).
+10. **Anti-regression**: when fixing a bug, add or update a test that would have caught it.
+
 ## Config & runtime behavior
 
 - Backend settings are **YAML defaults + env overrides** (env prefix `CLV_`), implemented in

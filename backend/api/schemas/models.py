@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 
-import pydantic
-from pydantic import BaseModel, Field
-
-_field_validator: Callable[..., Any] = (
-    getattr(pydantic, "field_validator", None) or pydantic.validator
-)
+from pydantic import BaseModel, Field, field_validator
 
 
 class PersonSchema(BaseModel):
@@ -73,13 +67,15 @@ class ConfigSchema(BaseModel):
     jpeg_quality: int | None = Field(default=70, ge=10, le=100)
     enable_backend_overlays: bool = False
 
-    @_field_validator("video_source")
+    @field_validator("video_source")
+    @classmethod
     def _validate_source(cls, v: str) -> str:
         if v not in {"webcam", "file", "rtsp"}:
             raise ValueError("video_source must be webcam|file|rtsp")
         return v
 
-    @_field_validator("grid_size")
+    @field_validator("grid_size")
+    @classmethod
     def _validate_grid(cls, v: str) -> str:
         if "x" not in v.lower():
             raise ValueError("grid_size must look like 10x10")
@@ -88,7 +84,8 @@ class ConfigSchema(BaseModel):
             raise ValueError("grid_size values must be > 0")
         return v
 
-    @_field_validator("model_task")
+    @field_validator("model_task")
+    @classmethod
     def _validate_model_task(cls, v: str | None) -> str | None:
         if v is None:
             return None

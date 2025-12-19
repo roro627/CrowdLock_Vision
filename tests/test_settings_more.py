@@ -39,21 +39,6 @@ def test_settings_to_dict_includes_expected_keys():
     assert "grid_size" in data
 
 
-def test_settings_to_dict_fallback_dict_method_branch():
-    class Dummy:
-        def dict(self):
-            return {"ok": True}
-
-    assert cfg.settings_to_dict(Dummy()) == {"ok": True}
-
-
-def test_fields_set_fallback_uses___fields_set__():
-    class Dummy:
-        __fields_set__ = {"a", "b"}
-
-    assert cfg._fields_set(Dummy()) == {"a", "b"}
-
-
 def test_load_settings_env_overrides_yaml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     conf_path = tmp_path / "config.yml"
     conf_path.write_text("confidence: 0.2\n", encoding="utf-8")

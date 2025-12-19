@@ -47,6 +47,6 @@ def update_config(cfg: ConfigSchema) -> ConfigSchema:
     environment variables or the YAML config file.
     """
 
-    data = cfg.model_dump() if hasattr(cfg, "model_dump") else cfg.dict()
+    data = cfg.model_dump()
     settings = reload_settings(data)
     return ConfigSchema(**settings_to_dict(settings))
