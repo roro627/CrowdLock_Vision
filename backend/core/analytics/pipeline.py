@@ -209,7 +209,7 @@ class VisionPipeline:
         """Process one frame and return (summary, annotated_frame, timings)."""
 
         timings: dict[str, float] = {}
-        t_all0 = time.perf_counter()
+        t_all0 = time.perf_counter() if profile else 0.0
 
         self._ensure_density(frame)
         self.frame_id += 1
@@ -229,7 +229,7 @@ class VisionPipeline:
             if profile:
                 timings["resize_ms"] = 0.0
 
-            t_det0 = time.perf_counter()
+            t_det0 = time.perf_counter() if profile else 0.0
             detections: list[Detection]
             used_roi = False
             if self.roi_config.enabled:
@@ -268,7 +268,7 @@ class VisionPipeline:
                     )
             else:
                 detections = self._detect_full_frame(frame, imgsz)
-            t_det1 = time.perf_counter()
+            t_det1 = time.perf_counter() if profile else 0.0
             if profile:
                 timings["detect_ms"] = (t_det1 - t_det0) * 1000.0
                 timings["roi_used"] = 1.0 if used_roi else 0.0
@@ -276,9 +276,9 @@ class VisionPipeline:
             if profile:
                 timings["scale_ms"] = 0.0
 
-            t_track0 = time.perf_counter()
+            t_track0 = time.perf_counter() if profile else 0.0
             persons: list[TrackedPerson] = self.tracker.update(detections)
-            t_track1 = time.perf_counter()
+            t_track1 = time.perf_counter() if profile else 0.0
             if profile:
                 timings["track_ms"] = (t_track1 - t_track0) * 1000.0
 
@@ -305,11 +305,11 @@ class VisionPipeline:
                 timings["track_ms"] = 0.0
                 timings["roi_used"] = 0.0
 
-        t_density0 = time.perf_counter()
+        t_density0 = time.perf_counter() if profile else 0.0
         if self.density_map:
             self.density_map.update([p.body_center for p in persons])
         density_summary = self.density_map.summary() if self.density_map else {}
-        t_density1 = time.perf_counter()
+        t_density1 = time.perf_counter() if profile else 0.0
         if profile:
             timings["density_ms"] = (t_density1 - t_density0) * 1000.0
 
@@ -334,9 +334,8 @@ class VisionPipeline:
             frame_size=(w, h),
         )
 
-        t_all1 = time.perf_counter()
         if profile:
-            timings["pipeline_ms"] = (t_all1 - t_all0) * 1000.0
+            timings["pipeline_ms"] = (time.perf_counter() - t_all0) * 1000.0
         return summary, frame, timings
 
     def process(

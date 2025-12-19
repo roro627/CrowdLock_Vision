@@ -46,3 +46,4 @@ class FrameSummary:
     density: dict
     fps: float
     frame_size: tuple[int, int] = (0, 0)
+    profile: dict[str, float] | None = None

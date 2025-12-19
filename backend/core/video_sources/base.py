@@ -193,8 +193,8 @@ class WebcamSource(OpenCVSource):
         if seq == self._delivered_seq:
             return None
         self._delivered_seq = seq
-        # Return a copy so downstream processing/overlays can't mutate our cached latest frame.
-        return frame.copy()
+        # Avoid copying to maximize throughput; downstream should treat frames as read-only.
+        return frame
 
 
 class FileSource(OpenCVSource):

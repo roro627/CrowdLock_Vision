@@ -27,5 +27,7 @@ roi_force_full_frame_on_track_loss: 0.25
 roi_detections_nms_iou: 0.50
 # Optional: downscale outgoing MJPEG frames (huge FPS win for 1080p sources)
 # output_width: 960
-jpeg_quality: 70
+jpeg_quality: 65
 enable_backend_overlays: false
+# Enable per-stage profiling in the engine (adds small overhead).
+profile_steps: false

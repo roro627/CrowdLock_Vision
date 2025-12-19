@@ -138,6 +138,135 @@ def test_process_loop_error_sets_last_error(monkeypatch):
     assert engine.last_error == "Pipeline processing failed"
 
 
+def test_process_loop_profiles_and_encode_updates(monkeypatch):
+    monkeypatch.setattr(eng.cv2, "resize", lambda img, size, interpolation=None: img)
+    monkeypatch.setattr(eng, "draw_overlays", lambda frame, summary: frame)
+
+    def _imencode(ext, img, params):
+        return True, types.SimpleNamespace(tobytes=lambda: b"jpg")
+
+    monkeypatch.setattr(eng.cv2, "imencode", _imencode)
+
+    engine = _make_engine(
+        monkeypatch,
+        output_width=10,
+        jpeg_quality=70,
+        enable_backend_overlays=True,
+        target_fps=0,
+        profile_steps=True,
+    )
+
+    frame = np.zeros((20, 20, 3), dtype=np.uint8)
+
+    def _process_with_profile(_frame, inference_width=None, inference_stride=None):
+        engine.running = False
+        summary = FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(20, 20)
+        )
+        return summary, _frame, {"detect_ms": 1.5, "pipeline_ms": 2.5}
+
+    engine.pipeline = types.SimpleNamespace(process_with_profile=_process_with_profile)
+    engine.source = _DummySource(engine, frames=[frame])
+
+    engine.running = True
+    engine._capture_event.set()
+    engine._latest_captured_frame = frame
+    engine._latest_capture_ms = 3.0
+    engine._process_loop()
+
+    summary = engine.latest_summary()
+    assert summary is not None
+    assert summary.profile is not None
+    assert summary.profile["detect_ms"] == 1.5
+    assert summary.profile["pipeline_ms"] == 2.5
+    assert summary.profile["capture_ms"] == 3.0
+    assert "overlay_ms" in summary.profile
+    assert "process_ms" in summary.profile
+
+    engine.running = True
+    engine._encode_event.set()
+
+    def _imencode_stop(ext, img, params):
+        engine.running = False
+        return True, types.SimpleNamespace(tobytes=lambda: b"jpg")
+
+    monkeypatch.setattr(eng.cv2, "imencode", _imencode_stop)
+    engine._encode_loop()
+
+    stream_summary = engine.latest_stream_summary()
+    assert stream_summary is not None
+    assert stream_summary.profile is not None
+    assert "out_resize_ms" in stream_summary.profile
+    assert "jpeg_encode_ms" in stream_summary.profile
+    assert "encode_ms" in stream_summary.profile
+
+
+def test_profile_steps_capture_and_overlay_disabled(monkeypatch):
+    engine = _make_engine(monkeypatch, enable_backend_overlays=False, target_fps=0, profile_steps=True)
+    frame = np.zeros((10, 10, 3), dtype=np.uint8)
+
+    class _Src:
+        def __init__(self):
+            self._n = 0
+
+        def read(self):
+            self._n += 1
+            if self._n == 1:
+                engine.running = False
+                return frame
+            engine.running = False
+            return None
+
+        def close(self):
+            return None
+
+    engine.source = _Src()
+    engine.running = True
+    engine._capture_loop()
+    assert engine._latest_capture_ms is not None
+
+    def _process(_frame, inference_width=None, inference_stride=None):
+        engine.running = False
+        summary = FrameSummary(
+            frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+        )
+        return summary, _frame
+
+    engine.pipeline = types.SimpleNamespace(process=_process)
+    engine.running = True
+    engine._capture_event.set()
+    engine._latest_captured_frame = frame
+    engine._latest_capture_ms = 4.0
+    engine._process_loop()
+
+    summary = engine.latest_summary()
+    assert summary is not None
+    assert summary.profile is not None
+    assert summary.profile["overlay_ms"] == 0.0
+
+
+def test_encode_loop_uses_resize_cache(monkeypatch):
+    monkeypatch.setattr(eng.cv2, "resize", lambda img, size, interpolation=None: img)
+
+    def _imencode_stop(ext, img, params):
+        engine.running = False
+        return True, types.SimpleNamespace(tobytes=lambda: b"jpg")
+
+    monkeypatch.setattr(eng.cv2, "imencode", _imencode_stop)
+
+    engine = _make_engine(monkeypatch, output_width=5, target_fps=0)
+    frame = np.zeros((10, 10, 3), dtype=np.uint8)
+    summary = FrameSummary(
+        frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+    )
+    engine._output_resize_cache = (10, 10, 5, 5)
+    engine._encode_queue.put_nowait((frame, summary))
+    engine._encode_event.set()
+    engine.running = True
+    engine._encode_loop()
+    assert engine.latest_frame() == b"jpg"
+
+
 def test_start_guard_does_not_reinit(monkeypatch):
     engine = _make_engine(monkeypatch)
     engine.running = True

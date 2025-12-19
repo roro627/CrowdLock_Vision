@@ -49,6 +49,7 @@ export interface BackendConfig {
   output_width?: number | null;
   jpeg_quality?: number | null;
   enable_backend_overlays?: boolean;
+  profile_steps?: boolean;
 }
 
 export interface PresetInfo {

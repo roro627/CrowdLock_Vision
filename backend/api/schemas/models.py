@@ -36,6 +36,7 @@ class FrameSchema(BaseModel):
     fps: float
     frame_size: tuple[int, int] | list[int]
     stream_fps: float | None = None
+    profile: dict[str, float] | None = None
 
 
 class StatsSchema(BaseModel):
@@ -66,6 +67,7 @@ class ConfigSchema(BaseModel):
     output_width: int | None = Field(default=None, gt=0)
     jpeg_quality: int | None = Field(default=70, ge=10, le=100)
     enable_backend_overlays: bool = False
+    profile_steps: bool = False
 
     @field_validator("video_source")
     @classmethod

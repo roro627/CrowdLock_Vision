@@ -109,9 +109,11 @@ class VideoEngine:
         self._capture_lock = threading.Lock()
         self._capture_event = threading.Event()
         self._latest_captured_frame: np.ndarray | None = None
+        self._latest_capture_ms: float | None = None
         self._encode_queue: Queue[tuple[np.ndarray, FrameSummary]] = Queue(maxsize=1)
         self._encode_event = threading.Event()
         self.last_error: str | None = None
+        self._output_resize_cache: tuple[int, int, int, int] | None = None
 
     @staticmethod
     def _frame_signature(frame: np.ndarray) -> bytes:
@@ -183,11 +185,19 @@ class VideoEngine:
 
         logger.debug("Capture loop started")
         while self.running and self.source:
-            frame = self.source.read()
+            capture_ms: float | None = None
+            if self.settings.profile_steps:
+                t0 = time.perf_counter()
+                frame = self.source.read()
+                t1 = time.perf_counter()
+                capture_ms = (t1 - t0) * 1000.0
+                now = t1
+            else:
+                frame = self.source.read()
+                now = time.perf_counter()
             if frame is None:
                 time.sleep(0.02)
                 continue
-            now = time.perf_counter()
             with self._lock:
                 if self._last_captured_at is not None:
                     dt = now - self._last_captured_at
@@ -204,6 +214,7 @@ class VideoEngine:
                 self._last_captured_at = now
             with self._capture_lock:
                 self._latest_captured_frame = frame
+                self._latest_capture_ms = capture_ms
             self._capture_event.set()
 
     def _process_loop(self) -> None:
@@ -215,7 +226,9 @@ class VideoEngine:
                 continue
             with self._capture_lock:
                 frame = self._latest_captured_frame
+                capture_ms = self._latest_capture_ms
                 self._latest_captured_frame = None
+                self._latest_capture_ms = None
                 self._capture_event.clear()
             if frame is None:
                 continue
@@ -232,19 +245,32 @@ class VideoEngine:
             if sig is not None:
                 self._last_frame_sig = sig
 
+            profile_steps = bool(self.settings.profile_steps)
             start = time.perf_counter()
             try:
-                summary, processed_frame = self.pipeline.process(
-                    frame,
-                    inference_width=self.settings.inference_width,
-                    inference_stride=self.settings.inference_stride,
-                )
+                profile: dict[str, float] | None = None
+                if profile_steps and hasattr(self.pipeline, "process_with_profile"):
+                    summary, processed_frame, timings = self.pipeline.process_with_profile(
+                        frame,
+                        inference_width=self.settings.inference_width,
+                        inference_stride=self.settings.inference_stride,
+                    )
+                    profile = dict(timings)
+                else:
+                    summary, processed_frame = self.pipeline.process(
+                        frame,
+                        inference_width=self.settings.inference_width,
+                        inference_stride=self.settings.inference_stride,
+                    )
+                    if profile_steps:
+                        profile = {}
                 self.last_error = None
             except Exception:
                 self.last_error = "Pipeline processing failed"
                 logger.exception(self.last_error)
                 continue
-            duration = time.perf_counter() - start
+            pipeline_duration = time.perf_counter() - start
+            duration = pipeline_duration
 
             # Update "infer fps" based on actual pipeline executions using a rolling time window.
             # This prevents huge numbers from a single tiny dt right after startup.
@@ -258,21 +284,35 @@ class VideoEngine:
                     self._processed_fps = float((len(self._processed_times) - 1) / span)
 
             # Ensure the payload's fps matches the engine-level processed FPS.
-            summary = replace(summary, fps=float(self._processed_fps))
+            if profile is not None:
+                profile.setdefault("pipeline_ms", pipeline_duration * 1000.0)
+                profile["capture_ms"] = float(capture_ms or 0.0)
+                summary = replace(summary, fps=float(self._processed_fps), profile=profile)
+            else:
+                summary = replace(summary, fps=float(self._processed_fps))
 
             if self._avg_processing_time == 0:
-                self._avg_processing_time = duration
+                self._avg_processing_time = pipeline_duration
             else:
                 self._avg_processing_time = (
                     1.0 - self._proc_alpha
-                ) * self._avg_processing_time + self._proc_alpha * duration
+                ) * self._avg_processing_time + self._proc_alpha * pipeline_duration
             with self._lock:
                 self._latest_summary = summary
 
             if self.settings.enable_backend_overlays:
+                t_ov0 = time.perf_counter()
                 annotated = draw_overlays(processed_frame, summary)
+                t_ov1 = time.perf_counter()
+                if profile is not None:
+                    profile["overlay_ms"] = (t_ov1 - t_ov0) * 1000.0
             else:
                 annotated = processed_frame
+                if profile is not None:
+                    profile["overlay_ms"] = 0.0
+
+            if profile is not None:
+                profile["process_ms"] = (time.perf_counter() - start) * 1000.0
 
             try:
                 if self._encode_queue.full():
@@ -307,13 +347,21 @@ class VideoEngine:
                 self._encode_event.clear()
 
             try:
+                encode_start = time.perf_counter()
+                out_resize_ms = 0.0
                 # Optional output downscale to reduce JPEG encode cost (major FPS win on high-res sources).
                 if self.settings.output_width and annotated is not None:
                     out_w = int(self.settings.output_width)
                     h0, w0 = annotated.shape[:2]
                     if out_w > 0 and w0 > out_w:
-                        scale = out_w / float(w0)
-                        out_h = max(1, int(h0 * scale))
+                        t_out0 = time.perf_counter()
+                        cache = self._output_resize_cache
+                        if cache is None or cache[:3] != (w0, h0, out_w):
+                            scale = out_w / float(w0)
+                            out_h = max(1, int(h0 * scale))
+                            self._output_resize_cache = (w0, h0, out_w, out_h)
+                        else:
+                            out_h = cache[3]
                         annotated = cv2.resize(
                             # INTER_AREA looks a bit nicer for downscale but is slower.
                             # For live MJPEG streaming, prefer throughput.
@@ -321,11 +369,17 @@ class VideoEngine:
                             (out_w, out_h),
                             interpolation=cv2.INTER_LINEAR,
                         )
+                        t_out1 = time.perf_counter()
+                        out_resize_ms = (t_out1 - t_out0) * 1000.0
 
+                t_enc0 = time.perf_counter()
                 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), self.settings.jpeg_quality]
                 ok, jpg = cv2.imencode(".jpg", annotated, encode_param)
+                t_enc1 = time.perf_counter()
                 if not ok:
                     continue
+                encode_ms = (t_enc1 - encode_start) * 1000.0
+                jpeg_encode_ms = (t_enc1 - t_enc0) * 1000.0
                 now = time.time()
                 with self._lock:
                     if self._last_encoded_at is not None:
@@ -342,6 +396,12 @@ class VideoEngine:
                             )
                     self._last_encoded_at = now
                     frame_bytes = jpg.tobytes()
+                    if _summary.profile is not None:
+                        updated = dict(_summary.profile)
+                        updated["out_resize_ms"] = float(out_resize_ms)
+                        updated["jpeg_encode_ms"] = float(jpeg_encode_ms)
+                        updated["encode_ms"] = float(encode_ms)
+                        _summary = replace(_summary, profile=updated)
                     self._latest_frame = frame_bytes
                     self._latest_stream_summary = _summary
                     self._latest_stream_packet = (frame_bytes, _summary)

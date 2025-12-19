@@ -35,8 +35,7 @@ class BackendSettings(BaseSettings):
     # Performance settings
     inference_width: int = 640
     # Run detector every N frames (1 = every frame). Skipped frames reuse last tracks.
-    # Default to 2 to materially increase throughput on CPU while keeping tracking usable.
-    inference_stride: int = 2
+    inference_stride: int = 1
 
     # ROI-based inference (tracker-driven crops + peripheral entry bands)
     roi_enabled: bool = False
@@ -55,6 +54,8 @@ class BackendSettings(BaseSettings):
     output_width: int | None = None
     jpeg_quality: int = 70
     enable_backend_overlays: bool = False
+    # Enable per-stage profiling in the engine (adds small overhead).
+    profile_steps: bool = False
 
     model_config = SettingsConfigDict(env_prefix="CLV_", validate_assignment=True)
 

@@ -34,32 +34,39 @@ class DensityMap:
         self.h, self.w = frame_shape
         self.config = config
         gx, gy = config.grid_size
-        self.grid = np.zeros((gy, gx), dtype=np.float64)
-        self._scratch = np.zeros((gy, gx), dtype=np.float64)
+        self._gx = int(gx)
+        self._gy = int(gy)
+        self._gx_over_w = float(self._gx) / float(self.w) if self.w else 0.0
+        self._gy_over_h = float(self._gy) / float(self.h) if self.h else 0.0
+        self.grid = np.zeros((self._gy, self._gx), dtype=np.float64)
+        self._scratch = np.zeros((self._gy, self._gx), dtype=np.float64)
 
     def _cell_index(self, point: Point) -> tuple[int, int]:
         """Return (x_index, y_index) for a point in pixel coordinates."""
 
         x, y = point
-        gx, gy = self.config.grid_size
-        i = int(np.clip(x / self.w * gx, 0, gx - 1))
-        j = int(np.clip(y / self.h * gy, 0, gy - 1))
+        i = int(np.clip(x * self._gx_over_w, 0, self._gx - 1))
+        j = int(np.clip(y * self._gy_over_h, 0, self._gy - 1))
         return i, j
 
     def update(self, body_points: list[Point]) -> None:
         """Update the density grid from a list of body-center points."""
 
-        gx, gy = self.config.grid_size
-        current = self._scratch
-        current.fill(0.0)
+        if self._gx == 0 or self._gy == 0:
+            return
 
+        current = self._scratch
         if body_points:
             pts = np.asarray(body_points, dtype=np.float32)
-            i = (pts[:, 0] * gx / float(self.w)).astype(np.int32)
-            j = (pts[:, 1] * gy / float(self.h)).astype(np.int32)
-            np.clip(i, 0, gx - 1, out=i)
-            np.clip(j, 0, gy - 1, out=j)
-            np.add.at(current, (j, i), 1.0)
+            i = (pts[:, 0] * self._gx_over_w).astype(np.int32)
+            j = (pts[:, 1] * self._gy_over_h).astype(np.int32)
+            np.clip(i, 0, self._gx - 1, out=i)
+            np.clip(j, 0, self._gy - 1, out=j)
+            idx = (j * self._gx + i).astype(np.int64, copy=False)
+            counts = np.bincount(idx, minlength=self._gx * self._gy).astype(np.float64)
+            current[:] = counts.reshape(self._gy, self._gx)
+        else:
+            current.fill(0.0)
 
         s = float(self.config.smoothing)
         self.grid *= s
@@ -68,11 +75,16 @@ class DensityMap:
     def summary(self) -> dict:
         """Return a JSON-serializable summary used by the API/UI."""
 
-        max_val = float(np.max(self.grid)) if self.grid.size else 0.0
-        max_index = np.unravel_index(np.argmax(self.grid), self.grid.shape)
-        max_cell = [int(max_index[1]), int(max_index[0])]
+        if not self.grid.size:
+            max_val = 0.0
+            max_cell = [0, 0]
+        else:
+            flat_index = int(self.grid.argmax())
+            max_val = float(self.grid.flat[flat_index])
+            j, i = divmod(flat_index, self._gx)
+            max_cell = [int(i), int(j)]
 
-        gx, gy = self.config.grid_size
+        gx, gy = self._gx, self._gy
         i, j = max_cell
         # Center of the max cell in pixel coordinates.
         cx = (float(i) + 0.5) * float(self.w) / float(gx) if gx > 0 else float(self.w) * 0.5

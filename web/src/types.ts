@@ -26,6 +26,8 @@ export interface FramePayload {
   stream_fps?: number;
   /** Client-side diagnostics derived from WS timing + clock offset estimation. */
   latency_ms?: number;
+  /** Optional per-stage timings (ms) when backend profiling is enabled. */
+  profile?: Record<string, number>;
 }
 
 export interface StatsPayload {

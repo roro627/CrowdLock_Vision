@@ -23,3 +23,11 @@ def test_smoothing_applies():
     dm.update([])
     second = dm.grid[0, 0]
     assert second < first and second > 0  # decays with smoothing
+
+
+def test_summary_handles_empty_grid():
+    dm = DensityMap((100, 100), DensityConfig(grid_size=(0, 0), smoothing=0.5))
+    dm.update([(10, 10)])
+    summary = dm.summary()
+    assert summary["max_cell"] == [0, 0]
+    assert summary["cells"] == []

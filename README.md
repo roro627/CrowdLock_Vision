@@ -144,6 +144,7 @@ make dev
 | `grid_size` | `10x10`, `16x16`, etc. | Density heatmap resolution |
 | `inference_width` | `640`, `320`, etc. | Detector input size (↓ = faster) |
 | `jpeg_quality` | `10` – `100` | Stream quality vs bandwidth |
+| `profile_steps` | `true` / `false` | Attach per-stage timing data to metadata payloads |
 
 ### Environment Variables (Override)
 
