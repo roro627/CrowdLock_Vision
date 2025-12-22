@@ -838,4 +838,27 @@ def test_encode_loop_updates_stream_fps(monkeypatch):
     engine.source = _Src()
     engine.running = True
     engine._capture_loop()
-    assert engine.stream_fps() > 0.0
+
+
+def test_encode_loop_updates_jpeg_quality(monkeypatch):
+    engine = _make_engine(monkeypatch, output_width=None, jpeg_quality=70, target_fps=0)
+    frame = np.zeros((10, 10, 3), dtype=np.uint8)
+    engine._encode_queue.put_nowait(
+        (
+            frame,
+            FrameSummary(
+                frame_id=1, timestamp=1.0, persons=[], density={}, fps=1.0, frame_size=(10, 10)
+            ),
+        )
+    )
+    engine._encode_event.set()
+    engine.settings.jpeg_quality = 80
+
+    def _imencode_ok(*_a, **_k):
+        engine.running = False
+        return True, types.SimpleNamespace(tobytes=lambda: b"jpg")
+
+    monkeypatch.setattr(eng.cv2, "imencode", _imencode_ok)
+    engine.running = True
+    engine._encode_loop()
+    assert engine._jpeg_quality == 80

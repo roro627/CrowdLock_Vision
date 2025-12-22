@@ -263,3 +263,45 @@ def test_bench_video_main_no_preset_uses_custom_settings(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "argv", argv)
     bv.main()
     assert Path("out2.json").exists()
+
+
+def test_bench_video_main_model_size_overrides(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(bv, "_iter_inputs", lambda _p: ["video.mp4"])
+
+    captured = {}
+
+    def _run_once(_video_path, settings):
+        captured["model_name"] = settings["model_name"]
+        return {
+            "video": _video_path,
+            "fps": 1.0,
+            "infer_frames_measured": 1,
+            "frames_measured": 1,
+            "infer_ratio": 1.0,
+            "skip_frames_measured": 0,
+            "stages_ms": {"total": {"mean": 1.0}},
+            "stages_ms_per_infer": {},
+        }
+
+    monkeypatch.setattr(bv, "run_once", _run_once)
+
+    argv = [
+        "bench_video.py",
+        "--input",
+        "video.mp4",
+        "--out",
+        "out3.json",
+        "--model-size",
+        "n",
+        "--warmup-frames",
+        "0",
+        "--max-frames",
+        "1",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+
+    bv.main()
+
+    assert captured["model_name"] == "yolo11n.pt"
+    assert Path("out3.json").exists()

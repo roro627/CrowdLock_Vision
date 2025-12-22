@@ -16,6 +16,28 @@ from ultralytics import YOLO
 
 from backend.core.types import Detection
 
+YOLO11_MODEL_SIZES = ("n", "s", "l")
+YOLO11_DEFAULT_MODEL = "yolo11l.pt"
+
+
+def resolve_yolo11_model(model_name: str | None, model_size: str | None) -> str:
+    """Resolve the YOLO11 model name from an optional size override.
+
+    Args:
+        model_name: Explicit model path/name (used when model_size is None).
+        model_size: Optional size selector ("n", "s", "l") to build yolo11{size}.pt.
+
+    Returns:
+        The resolved model name to pass to Ultralytics.
+    """
+
+    if model_size:
+        size = str(model_size).strip().lower()
+        if size not in YOLO11_MODEL_SIZES:
+            raise ValueError("model_size must be one of: n, s, l")
+        return f"yolo11{size}.pt"
+    return model_name or YOLO11_DEFAULT_MODEL
+
 
 class YoloPersonDetector:
     """Person detector wrapper around Ultralytics YOLO.
@@ -50,6 +72,13 @@ class YoloPersonDetector:
         self.model_name = model_name
         self.is_onnx = model_name.lower().endswith(".onnx")
         self.device: str = "cpu"
+        self._torch_inference_mode: Any | None = None
+        if not self.is_onnx:
+            try:
+                torch = importlib.import_module("torch")
+                self._torch_inference_mode = torch.inference_mode
+            except Exception:
+                self._torch_inference_mode = None
         # Avoid .to(device) on ONNX exports; Ultralytics raises TypeError
         self.model = YOLO(model_name, task=task)
 
@@ -68,6 +97,9 @@ class YoloPersonDetector:
             # This reduces NMS/post-processing overhead on CPU.
             "classes": [0],
             "device": self.device,
+        }
+        self._predict_kwargs_cache: dict[int | None, dict[str, Any]] = {
+            None: self._base_predict_kwargs
         }
 
         # Small CPU speed win (Conv+BN fusion) for torch models.
@@ -114,19 +146,24 @@ class YoloPersonDetector:
             A list of `Detection` objects in full-frame pixel coordinates.
         """
 
-        kwargs = self._base_predict_kwargs
         if imgsz:
             # Ultralytics expects `imgsz` to drive its internal letterboxing.
-            kwargs = dict(kwargs)
-            kwargs["imgsz"] = int(imgsz)
+            imgsz_i = int(imgsz)
+            kwargs = self._predict_kwargs_cache.get(imgsz_i)
+            if kwargs is None:
+                kwargs = dict(self._base_predict_kwargs)
+                kwargs["imgsz"] = imgsz_i
+                self._predict_kwargs_cache[imgsz_i] = kwargs
+        else:
+            kwargs = self._base_predict_kwargs
 
         # Ultralytics already uses no-grad internally in most cases, but being explicit
         # avoids surprises and keeps CPU execution lean.
-        try:
-            torch: Any = importlib.import_module("torch")
-            infer_ctx = torch.inference_mode() if not self.is_onnx else nullcontext()
-        except Exception:
-            infer_ctx = nullcontext()
+        infer_ctx = (
+            self._torch_inference_mode()
+            if self._torch_inference_mode is not None
+            else nullcontext()
+        )
 
         with infer_ctx:
             results = self.model.predict(frame, **kwargs)

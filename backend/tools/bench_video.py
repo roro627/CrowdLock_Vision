@@ -19,7 +19,7 @@ from backend.core.analytics.density import DensityConfig
 from backend.core.analytics.pipeline import VisionPipeline
 from backend.core.config.presets import PRESET_LABELS, preset_patch
 from backend.core.config.settings import _parse_grid
-from backend.core.detectors.yolo import YoloPersonDetector
+from backend.core.detectors.yolo import YoloPersonDetector, resolve_yolo11_model
 from backend.core.overlay.draw import draw_overlays
 from backend.core.roi import RoiConfig
 from backend.core.trackers.simple_tracker import SimpleTracker
@@ -302,6 +302,11 @@ def main() -> None:
     )
     parser.add_argument("--model", default="yolo11l.pt")
     parser.add_argument(
+        "--model-size",
+        choices=["n", "s", "l"],
+        help="Shortcut for selecting yolo11{n|s|l}.pt (overrides --model)",
+    )
+    parser.add_argument(
         "--task",
         default="auto",
         choices=["auto", "detect", "pose"],
@@ -348,8 +353,9 @@ def main() -> None:
 
     inputs = _iter_inputs(args.input)
 
+    model_name = resolve_yolo11_model(args.model, args.model_size)
     base_settings: dict[str, Any] = {
-        "model_name": args.model,
+        "model_name": model_name,
         "model_task": (None if args.task == "auto" else args.task),
         "confidence": args.confidence,
         "grid_size": args.grid_size,

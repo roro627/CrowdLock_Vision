@@ -114,6 +114,8 @@ class VideoEngine:
         self._encode_event = threading.Event()
         self.last_error: str | None = None
         self._output_resize_cache: tuple[int, int, int, int] | None = None
+        self._jpeg_quality = int(self.settings.jpeg_quality)
+        self._jpeg_encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), self._jpeg_quality]
 
     @staticmethod
     def _frame_signature(frame: np.ndarray) -> bytes:
@@ -255,7 +257,7 @@ class VideoEngine:
                         inference_width=self.settings.inference_width,
                         inference_stride=self.settings.inference_stride,
                     )
-                    profile = dict(timings)
+                    profile = timings
                 else:
                     summary, processed_frame = self.pipeline.process(
                         frame,
@@ -373,7 +375,13 @@ class VideoEngine:
                         out_resize_ms = (t_out1 - t_out0) * 1000.0
 
                 t_enc0 = time.perf_counter()
-                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), self.settings.jpeg_quality]
+                if self.settings.jpeg_quality != self._jpeg_quality:
+                    self._jpeg_quality = int(self.settings.jpeg_quality)
+                    self._jpeg_encode_param = [
+                        int(cv2.IMWRITE_JPEG_QUALITY),
+                        self._jpeg_quality,
+                    ]
+                encode_param = self._jpeg_encode_param
                 ok, jpg = cv2.imencode(".jpg", annotated, encode_param)
                 t_enc1 = time.perf_counter()
                 if not ok:

@@ -3,6 +3,7 @@ import os
 import sys
 
 import numpy as np
+import pytest
 
 import backend.core.detectors.yolo as yolo_mod
 
@@ -266,3 +267,14 @@ def test_detect_model_task_env_normalization(monkeypatch):
     os.environ.pop("CLV_TORCH_THREADS", None)
     os.environ.pop("CLV_TORCH_INTEROP_THREADS", None)
     yolo_mod.YoloPersonDetector(model_name="m.pt", task="detect")
+
+
+def test_resolve_yolo11_model_prefers_size_override():
+    assert yolo_mod.resolve_yolo11_model("custom.pt", "n") == "yolo11n.pt"
+    assert yolo_mod.resolve_yolo11_model("custom.pt", "s") == "yolo11s.pt"
+    assert yolo_mod.resolve_yolo11_model(None, None) == "yolo11l.pt"
+
+
+def test_resolve_yolo11_model_rejects_unknown_size():
+    with pytest.raises(ValueError):
+        yolo_mod.resolve_yolo11_model("custom.pt", "x")

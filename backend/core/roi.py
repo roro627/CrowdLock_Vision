@@ -313,6 +313,7 @@ def pack_rois_best_grid(
     *,
     max_cols_limit: int = 4,
     pad: int = 2,
+    best_cols: int | None = None,
 ) -> tuple[np.ndarray, list[PackedRoi]]:
     """Pack ROIs into a mosaic, choosing the grid width to minimize mosaic area.
 
@@ -320,14 +321,17 @@ def pack_rois_best_grid(
     This can reduce mosaic area vs a fixed `max_cols=2`, which can improve FPS.
     """
 
-    mosaic_w, mosaic_h, _area, best_cols = estimate_best_mosaic_area(
-        frame_shape=frame.shape,
-        rois=rois,
-        max_cols_limit=max_cols_limit,
-        pad=pad,
-    )
-    _ = (mosaic_w, mosaic_h)
-    return pack_rois_grid(frame, rois, max_cols=best_cols, pad=int(max(0, pad)))
+    cols = best_cols
+    if cols is None:
+        mosaic_w, mosaic_h, _area, cols = estimate_best_mosaic_area(
+            frame_shape=frame.shape,
+            rois=rois,
+            max_cols_limit=max_cols_limit,
+            pad=pad,
+        )
+        _ = (mosaic_w, mosaic_h)
+    cols_i = int(max(1, min(int(cols), len(rois)))) if cols is not None else 1
+    return pack_rois_grid(frame, rois, max_cols=cols_i, pad=int(max(0, pad)))
 
 
 def estimate_best_mosaic_area(
@@ -398,23 +402,35 @@ def split_and_reproject_mosaic_detections(
     if not packed:
         return []
 
+    packed_bounds: list[tuple[int, int, int, int, float, float]] = []
+    for p in packed:
+        mx = int(p.mosaic_x)
+        my = int(p.mosaic_y)
+        mw = int(p.w)
+        mh = int(p.h)
+        x2 = mx + mw
+        y2 = my + mh
+        rx1, ry1, _rx2, _ry2 = p.roi
+        dx = float(rx1) - float(mx)
+        dy = float(ry1) - float(my)
+        packed_bounds.append((mx, my, x2, y2, dx, dy))
+
     out: list[Detection] = []
     for det in detections:
         x1, y1, x2, y2 = det.bbox
         cx = (x1 + x2) * 0.5
         cy = (y1 + y2) * 0.5
 
-        owner: PackedRoi | None = None
-        for p in packed:
-            if p.mosaic_x <= cx < (p.mosaic_x + p.w) and p.mosaic_y <= cy < (p.mosaic_y + p.h):
-                owner = p
+        dx = None
+        dy = None
+        for mx, my, mx2, my2, pdx, pdy in packed_bounds:
+            if mx <= cx < mx2 and my <= cy < my2:
+                dx = pdx
+                dy = pdy
                 break
-        if owner is None:
+        if dx is None or dy is None:
             continue
 
-        rx1, ry1, _rx2, _ry2 = owner.roi
-        dx = float(rx1) - float(owner.mosaic_x)
-        dy = float(ry1) - float(owner.mosaic_y)
         out.append(reproject_detection(det, dx=dx, dy=dy))
 
     return out

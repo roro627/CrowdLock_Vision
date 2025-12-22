@@ -18,6 +18,12 @@ const defaultCfg: BackendConfig = {
   enable_backend_overlays: false,
 };
 
+const modelOptions = [
+  { value: 'yolo11n.pt', label: 'YOLO11n (fastest)' },
+  { value: 'yolo11s.pt', label: 'YOLO11s (balanced)' },
+  { value: 'yolo11l.pt', label: 'YOLO11l (best quality)' },
+];
+
 /**
  * Configuration form that reads/writes backend settings via the REST API.
  *
@@ -28,6 +34,8 @@ export function SourceSelector({ onStatus }: Props) {
   const [cfg, setCfg] = useState<BackendConfig>(defaultCfg);
   const [presets, setPresets] = useState<PresetInfo[]>([]);
   const [presetId, setPresetId] = useState<string>('fps_max');
+  const [customModel, setCustomModel] = useState<string>('');
+  const [modelSelect, setModelSelect] = useState<string>(defaultCfg.model_name);
 
   const applyPresetFromList = (list: PresetInfo[], id: string): void => {
     const preset = list.find((p) => p.id === id);
@@ -59,6 +67,18 @@ export function SourceSelector({ onStatus }: Props) {
       .then((data) => setCfg(data))
       .catch(() => onStatus('error'));
   }, [onStatus]);
+
+  useEffect(() => {
+    const isPreset = modelOptions.some((opt) => opt.value === cfg.model_name);
+    if (isPreset) {
+      setModelSelect(cfg.model_name);
+      return;
+    }
+    setModelSelect('custom');
+    if (cfg.model_name) {
+      setCustomModel(cfg.model_name);
+    }
+  }, [cfg.model_name]);
 
   useEffect(() => {
     api
@@ -172,12 +192,42 @@ export function SourceSelector({ onStatus }: Props) {
         )}
         <label className="flex items-center gap-2">
           <span className="w-28 text-sm text-slate-300">Model</span>
-          <input
+          <select
             className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
-            value={cfg.model_name}
-            onChange={(e) => handleChange('model_name', e.target.value)}
-          />
+            value={modelSelect}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (next === 'custom') {
+                setModelSelect('custom');
+                handleChange('model_name', customModel || cfg.model_name || '');
+              } else {
+                setModelSelect(next);
+                handleChange('model_name', next);
+              }
+            }}
+          >
+            {modelOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+            <option value="custom">Custom</option>
+          </select>
         </label>
+        {modelSelect === 'custom' && (
+          <label className="flex items-center gap-2">
+            <span className="w-28 text-sm text-slate-300">Model Path</span>
+            <input
+              className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
+              value={cfg.model_name}
+              onChange={(e) => {
+                setCustomModel(e.target.value);
+                handleChange('model_name', e.target.value);
+              }}
+              placeholder="yolo11n.pt"
+            />
+          </label>
+        )}
         <label className="flex items-center gap-2">
           <span className="w-28 text-sm text-slate-300">Confidence</span>
           <input

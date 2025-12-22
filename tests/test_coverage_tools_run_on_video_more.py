@@ -146,10 +146,11 @@ def test_run_on_video_non_mock_uses_yolo_detector(monkeypatch, tmp_path):
     monkeypatch.setattr(rov, "DensityConfig", lambda *a, **k: object())
     monkeypatch.setattr(rov, "SimpleTracker", lambda *a, **k: object())
 
-    called = {"n": 0}
+    called = {"n": 0, "model": None}
 
-    def _det(*_a, **_k):
+    def _det(model_name, *_a, **_k):
         called["n"] += 1
+        called["model"] = model_name
         return object()
 
     monkeypatch.setattr(rov, "YoloPersonDetector", _det)
@@ -169,6 +170,7 @@ def test_run_on_video_non_mock_uses_yolo_detector(monkeypatch, tmp_path):
         input="x",
         output=str(out),
         model="m",
+        model_size="n",
         conf=0.3,
         grid_size="2x2",
         smoothing=0.2,
@@ -178,6 +180,7 @@ def test_run_on_video_non_mock_uses_yolo_detector(monkeypatch, tmp_path):
     )
     rov.run(args)
     assert called["n"] == 1
+    assert called["model"] == "yolo11n.pt"
 
 
 def test_run_on_video_main_executes(monkeypatch, tmp_path):

@@ -9,7 +9,7 @@ FRONTEND_PORT ?= 5173
 BACKEND_MODE ?= docker
 COMPOSE_CMD ?= docker compose
 
-.PHONY: help setup install-backend install-frontend backend frontend dev dev-local doctor clean
+.PHONY: help setup install-backend install-frontend backend frontend dev dev-local doctor clean test
 
 help:
 	@echo "Available targets:"
@@ -21,6 +21,7 @@ help:
 	@echo "  dev               Start backend (docker by default) + frontend via start_stack.py"
 	@echo "  dev-local         Run dev target with BACKEND_MODE=local"
 	@echo "  doctor            Check environment + project sanity"
+	@echo "  test              Run pytest with coverage (fails if <100%)"
 	@echo "  clean             Remove temporary files/caches (incl. .venv and web/node_modules)"
 
 setup: install-backend install-frontend
@@ -45,6 +46,9 @@ dev-local:
 
 doctor:
 	$(PYTHON) scripts/dev/doctor.py
+
+test:
+	$(PYTHON) -m pytest --cov=backend --cov-report=term-missing --cov-fail-under=100
 
 clean:
 	@echo "Cleaning temporary files and folders..."

@@ -13,7 +13,7 @@ import numpy as np
 from backend.core.analytics.density import DensityConfig
 from backend.core.analytics.pipeline import VisionPipeline
 from backend.core.config.settings import _parse_grid
-from backend.core.detectors.yolo import YoloPersonDetector
+from backend.core.detectors.yolo import YoloPersonDetector, resolve_yolo11_model
 from backend.core.roi import RoiConfig
 from backend.core.trackers.simple_tracker import SimpleTracker
 from backend.core.types import Detection
@@ -51,7 +51,8 @@ def run(args: argparse.Namespace) -> None:
     cap = cv2.VideoCapture(args.input)
     if not cap.isOpened():
         raise SystemExit(f"Cannot open video {args.input}")
-    detector = _DummyDetector() if args.mock else YoloPersonDetector(args.model, conf=args.conf)
+    model_name = resolve_yolo11_model(args.model, getattr(args, "model_size", None))
+    detector = _DummyDetector() if args.mock else YoloPersonDetector(model_name, conf=args.conf)
     tracker = SimpleTracker()
     grid = _parse_grid(args.grid_size)
     roi_config = RoiConfig(
@@ -94,6 +95,11 @@ if __name__ == "__main__":
     parser.add_argument("--input", required=True, help="Path to video file")
     parser.add_argument("--output", required=True, help="Where to save JSON output")
     parser.add_argument("--model", default="yolo11l.pt")
+    parser.add_argument(
+        "--model-size",
+        choices=["n", "s", "l"],
+        help="Shortcut for selecting yolo11{n|s|l}.pt (overrides --model)",
+    )
     parser.add_argument("--conf", type=float, default=0.35)
     parser.add_argument("--grid-size", default="10x10", help="e.g. 8x8")
     parser.add_argument("--smoothing", type=float, default=0.2)

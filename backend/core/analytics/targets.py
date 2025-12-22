@@ -60,6 +60,8 @@ def compute_body_center(det: Detection) -> Point:
 def compute_targets(det: Detection) -> tuple[Point, Point]:
     """Return (head_center, body_center) for the detection."""
 
+    if det.keypoints is None or det.keypoints.size == 0:
+        return _bbox_upper_center(det.bbox), _bbox_lower_center(det.bbox)
     head = compute_head_center(det)
     body = compute_body_center(det)
     return head, body

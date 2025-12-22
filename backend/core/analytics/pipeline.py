@@ -21,11 +21,15 @@ from backend.core.roi import (
     estimate_best_mosaic_area,
     merge_rois,
     nms_detections,
-    pack_rois_best_grid,
+    pack_rois_best_grid as _pack_rois_best_grid,
+    pack_rois_grid,
     reproject_detection,
     shift_bbox,
     split_and_reproject_mosaic_detections,
 )
+
+# Backward-compat alias for tests that monkeypatch this symbol.
+pack_rois_best_grid = _pack_rois_best_grid
 from backend.core.trackers.simple_tracker import SimpleTracker
 from backend.core.types import Detection, FrameSummary, TrackedPerson
 
@@ -127,7 +131,7 @@ class VisionPipeline:
         # If we have multiple ROIs, pack them into a mosaic and run a single model call.
         # This is the main CPU win: avoid N model invocations per frame.
         if len(rois) >= 2:
-            _mw, _mh, mosaic_area_est, _cols = estimate_best_mosaic_area(
+            _mw, _mh, mosaic_area_est, best_cols = estimate_best_mosaic_area(
                 frame_shape=frame.shape,
                 rois=rois,
                 max_cols_limit=4,
@@ -139,7 +143,13 @@ class VisionPipeline:
             if mosaic_frac_est >= cfg.max_area_fraction:
                 return self._detect_full_frame(frame, imgsz), False
 
-            mosaic, packed = pack_rois_best_grid(frame, rois, max_cols_limit=4, pad=2)
+            mosaic, packed = pack_rois_best_grid(
+                frame,
+                rois,
+                max_cols_limit=4,
+                pad=2,
+                best_cols=int(best_cols),
+            )
             mosaic_area = float(mosaic.shape[0] * mosaic.shape[1])
             mosaic_frac = (mosaic_area / float(w * h)) if w > 0 and h > 0 else 1.0
             if profile:

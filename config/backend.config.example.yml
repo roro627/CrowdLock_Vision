@@ -2,6 +2,7 @@ video_source: file
 video_path: testdata/videos/855564-hd_1920_1080_24fps.mp4
 rtsp_url: null
 model_name: yolo11l.pt
+# Supported YOLO11 sizes: yolo11n.pt | yolo11s.pt | yolo11l.pt
 # Ultralytics will auto-download weights if the file is not present locally.
 # Task override: auto|detect|pose. On CPU, 'detect' is much faster.
 model_task: detect

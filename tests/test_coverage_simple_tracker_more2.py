@@ -64,3 +64,29 @@ def test_tracker_deletes_unmatched_after_assignment():
     # Only one detection overlaps => the other track is unmatched and should be deleted (max_missed=0).
     persons = tracker.update([d1])
     assert len(persons) == 1
+
+
+def test_tracker_breaks_when_iou_matrix_empty(monkeypatch):
+    tracker = st.SimpleTracker(iou_threshold=0.1, max_missed=5)
+    d1 = Detection(bbox=(0.0, 0.0, 10.0, 10.0), confidence=0.9, keypoints=None)
+    d2 = Detection(bbox=(20.0, 20.0, 30.0, 30.0), confidence=0.8, keypoints=None)
+    tracker.update([d1])
+
+    monkeypatch.setattr(st.np, "where", lambda *_a, **_k: st.np.array([]))
+    persons = tracker.update([d2])
+    assert len(persons) == 2
+
+
+def test_tracker_skips_missing_track_in_cleanup(monkeypatch):
+    tracker = st.SimpleTracker(iou_threshold=0.1, max_missed=5)
+    d1 = Detection(bbox=(0.0, 0.0, 10.0, 10.0), confidence=0.9, keypoints=None)
+    d2 = Detection(bbox=(100.0, 100.0, 110.0, 110.0), confidence=0.8, keypoints=None)
+    tracker.update([d1])
+
+    def _compute_targets(det):
+        tracker.tracks.pop(1, None)
+        return (0.0, 0.0), (1.0, 1.0)
+
+    monkeypatch.setattr(st, "compute_targets", _compute_targets)
+    persons = tracker.update([d2])
+    assert len(persons) == 1

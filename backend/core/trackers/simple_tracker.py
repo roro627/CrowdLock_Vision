@@ -8,6 +8,8 @@ import numpy as np
 from backend.core.analytics.targets import compute_targets
 from backend.core.types import BBox, Detection, Point, TrackedPerson
 
+IOU_SUPPRESS_VALUE = -1.0
+
 
 def iou(boxA: BBox, boxB: BBox) -> float:
     """Compute the intersection-over-union (IoU) of two axis-aligned boxes."""
@@ -55,9 +57,11 @@ class SimpleTracker:
     def update(self, detections: list[Detection]) -> list[TrackedPerson]:
         """Update tracks from detector outputs and return current tracked persons."""
 
+        detections_list = detections if isinstance(detections, list) else list(detections)
+
         # Fast paths to avoid building matrices when possible.
         if not self.tracks:
-            for det in detections:
+            for det in detections_list:
                 new_id = next(self._id_iter)
                 head, body = compute_targets(det)
                 self.tracks[new_id] = Track(
@@ -79,7 +83,7 @@ class SimpleTracker:
                 for track in self.tracks.values()
             ]
 
-        if not detections:
+        if not detections_list:
             to_delete = []
             for tid, track in self.tracks.items():
                 track.missed += 1
@@ -98,40 +102,49 @@ class SimpleTracker:
                 for track in self.tracks.values()
             ]
 
-        assigned_tracks = set()
-        assigned_dets = set()
-
         track_ids = list(self.tracks.keys())
-        iou_matrix = np.zeros((len(track_ids), len(detections)), dtype=float)
-        for ti, tid in enumerate(track_ids):
-            for di, det in enumerate(detections):
-                iou_matrix[ti, di] = iou(self.tracks[tid].bbox, det.bbox)
+        track_list = [self.tracks[tid] for tid in track_ids]
+        assigned_tracks = np.zeros(len(track_ids), dtype=bool)
+        assigned_dets = np.zeros(len(detections_list), dtype=bool)
+
+        track_boxes = np.array([track.bbox for track in track_list], dtype=np.float64)
+        det_boxes = np.array([det.bbox for det in detections_list], dtype=np.float64)
+        xA = np.maximum(track_boxes[:, None, 0], det_boxes[None, :, 0])
+        yA = np.maximum(track_boxes[:, None, 1], det_boxes[None, :, 1])
+        xB = np.minimum(track_boxes[:, None, 2], det_boxes[None, :, 2])
+        yB = np.minimum(track_boxes[:, None, 3], det_boxes[None, :, 3])
+        inter = np.maximum(0.0, xB - xA) * np.maximum(0.0, yB - yA)
+        track_w = np.maximum(0.0, track_boxes[:, 2] - track_boxes[:, 0])
+        track_h = np.maximum(0.0, track_boxes[:, 3] - track_boxes[:, 1])
+        det_w = np.maximum(0.0, det_boxes[:, 2] - det_boxes[:, 0])
+        det_h = np.maximum(0.0, det_boxes[:, 3] - det_boxes[:, 1])
+        track_area = track_w * track_h
+        det_area = det_w * det_h
+        union = track_area[:, None] + det_area[None, :] - inter
+        iou_matrix = np.where(union > 0.0, inter / union, 0.0)
 
         while True:
             if iou_matrix.size == 0:
                 break
-            ti, di = divmod(iou_matrix.argmax(), iou_matrix.shape[1])
+            ti, di = divmod(int(iou_matrix.argmax()), iou_matrix.shape[1])
             if iou_matrix[ti, di] < self.iou_threshold:
                 break
             tid = track_ids[ti]
-            track = self.tracks[tid]
-            det = detections[di]
+            track = track_list[ti]
+            det = detections_list[di]
             head, body = compute_targets(det)
-            self.tracks[tid] = Track(
-                id=tid,
-                bbox=det.bbox,
-                head_center=head,
-                body_center=body,
-                confidence=det.confidence,
-                missed=0,
-            )
-            assigned_tracks.add(tid)
-            assigned_dets.add(di)
-            iou_matrix[ti, :] = -1
-            iou_matrix[:, di] = -1
+            track.bbox = det.bbox
+            track.head_center = head
+            track.body_center = body
+            track.confidence = det.confidence
+            track.missed = 0
+            assigned_tracks[ti] = True
+            assigned_dets[di] = True
+            iou_matrix[ti, :] = IOU_SUPPRESS_VALUE
+            iou_matrix[:, di] = IOU_SUPPRESS_VALUE
 
-        for di, det in enumerate(detections):
-            if di in assigned_dets:
+        for di, det in enumerate(detections_list):
+            if assigned_dets[di]:
                 continue
             new_id = next(self._id_iter)
             head, body = compute_targets(det)
@@ -145,8 +158,11 @@ class SimpleTracker:
             )
 
         to_delete = []
-        for tid, track in self.tracks.items():
-            if tid in assigned_tracks:
+        for ti, tid in enumerate(track_ids):
+            if assigned_tracks[ti]:
+                continue
+            track = self.tracks.get(tid)
+            if track is None:
                 continue
             track.missed += 1
             if track.missed > self.max_missed:
