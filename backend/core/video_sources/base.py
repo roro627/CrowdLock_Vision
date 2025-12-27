@@ -297,4 +297,41 @@ class RTSPSource(OpenCVSource):
     """RTSP stream source."""
 
     def __init__(self, url: str) -> None:
-        super().__init__(url)
+        # RTSP is often more reliable when explicitly using the FFmpeg backend.
+        # Fall back to OpenCV default backend if FFmpeg isn't available.
+        self.cap = None
+        last_exc: Exception | None = None
+
+        candidates: list[tuple[str, int | None]] = [(url, getattr(cv2, "CAP_FFMPEG", None)), (url, None)]
+        for src, backend in candidates:
+            try:
+                cap = cv2.VideoCapture(src) if backend is None else cv2.VideoCapture(src, backend)
+                if cap.isOpened():
+                    self.cap = cap
+                    break
+                cap.release()
+            except Exception as exc:
+                last_exc = exc
+
+        if self.cap is None or not self.cap.isOpened():
+            if last_exc is not None:
+                raise RuntimeError(f"Failed to open RTSP source: {url} ({last_exc})") from last_exc
+            raise RuntimeError(f"Failed to open RTSP source: {url}")
+
+        # Low-latency tuning: keep capture buffering minimal.
+        try:
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        except Exception:
+            pass
+
+        # Avoid long hangs when a stream is unreachable (supported on some OpenCV builds).
+        for prop, value in (
+            (getattr(cv2, "CAP_PROP_OPEN_TIMEOUT_MSEC", None), 5000),
+            (getattr(cv2, "CAP_PROP_READ_TIMEOUT_MSEC", None), 5000),
+        ):
+            if prop is None:
+                continue
+            try:
+                self.cap.set(int(prop), float(value))
+            except Exception:
+                pass

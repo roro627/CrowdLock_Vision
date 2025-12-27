@@ -97,8 +97,8 @@ You has access to external tools and should use them when it improves correctnes
 - JS/TS (web): `prettier` + `eslint` with TypeScript strict; React components PascalCase, hooks `useThing`,
   files kebab-case or component name.
 - Python formatting/lint: Black + Ruff (`pyproject.toml`, line length 100). Keep type hints.
-- Don’t introduce `pydantic-settings` unless you intentionally migrate to Pydantic v2
-  (backend pins `pydantic==1.10.18`).
+- Backend uses **Pydantic v2** with `pydantic-settings` (see `backend/requirements.txt`).
+  Prefer keeping settings centralized in `backend/core/config/settings.py` and avoid ad-hoc env parsing.
 - Docker images set `ULTRALYTICS_AUTOUPDATE=0` and use CPU Torch wheels (see `Dockerfile` + `backend/requirements.txt`).
 
 ## Testing guidelines

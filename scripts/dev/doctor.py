@@ -195,11 +195,11 @@ def main() -> int:
     print("- Web tests:                     cd web && npm test")
 
     # Helpful demo hint.
-    demo_video = root / "testdata" / "videos" / "855564-hd_1920_1080_24fps.mp4"
+    demo_video = root / "testdata" / "videos" / "top_view_1920_1080_25fps.mp4"
     if demo_video.exists():
         print("\nDemo (file source):")
         print(
-            "- Set video_source=file and video_path=testdata/videos/855564-hd_1920_1080_24fps.mp4 in config/backend.config.yml"
+            "- Set video_source=file and video_path=testdata/videos/top_view_1920_1080_25fps.mp4 in config/backend.config.yml"
         )
 
     return 1 if failed else 0

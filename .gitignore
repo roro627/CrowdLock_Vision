@@ -3,7 +3,6 @@ web/tsconfig.tsbuildinfo
 web/tsconfig.node.tsbuildinfo
 web/vite.config.d.ts
 dist/
-web/package-lock.json
 node_modules/
 web/dist/
 web/node_modules/
@@ -21,6 +20,14 @@ yolo11*.onnx
 __pycache__/
 *.pyc
 .vscode/
+
+# Env (never commit)
+.env
+.env.*
+!.env.example
+config/*.env
+config/*.env.*
+!config/*.example.env
 
 # Temp
 tmp/

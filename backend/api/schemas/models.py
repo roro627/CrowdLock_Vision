@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class PersonSchema(BaseModel):
@@ -68,6 +68,16 @@ class ConfigSchema(BaseModel):
     jpeg_quality: int | None = Field(default=70, ge=10, le=100)
     enable_backend_overlays: bool = False
     profile_steps: bool = False
+
+    @model_validator(mode="after")
+    def _validate_source_fields(self) -> "ConfigSchema":
+        """Validate required fields depending on `video_source`."""
+
+        if self.video_source == "file" and not self.video_path:
+            raise ValueError("video_path is required when video_source=file")
+        if self.video_source == "rtsp" and not self.rtsp_url:
+            raise ValueError("rtsp_url is required when video_source=rtsp")
+        return self
 
     @field_validator("video_source")
     @classmethod

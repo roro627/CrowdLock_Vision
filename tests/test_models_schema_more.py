@@ -66,3 +66,19 @@ def test_config_schema_model_task_normalization():
     payload["model_task"] = "seg"
     with pytest.raises(ValidationError):
         ConfigSchema(**payload)
+
+
+def test_config_schema_requires_video_path_when_file_source():
+    payload = _base_payload()
+    payload["video_source"] = "file"
+    payload["video_path"] = None
+    with pytest.raises(ValidationError):
+        ConfigSchema(**payload)
+
+
+def test_config_schema_requires_rtsp_url_when_rtsp_source():
+    payload = _base_payload()
+    payload["video_source"] = "rtsp"
+    payload["rtsp_url"] = None
+    with pytest.raises(ValidationError):
+        ConfigSchema(**payload)

@@ -1,23 +1,24 @@
-name: ci
+name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  backend:
+    name: Backend (pytest + coverage)
     runs-on: ubuntu-latest
     env:
       ULTRALYTICS_AUTOUPDATE: "0"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           lfs: true
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -25,7 +26,12 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install dependencies
+      - name: System deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg libgl1 libglib2.0-0
+
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements-dev.txt
@@ -34,12 +40,28 @@ jobs:
         run: |
           python -m pytest --cov=backend --cov-report=term-missing --cov-fail-under=100
 
-      - name: Install frontend dependencies
-        working-directory: web
-        run: |
-          npm install
+  web:
+    name: Web (test + build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Run frontend tests
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
         working-directory: web
-        run: |
-          npm test
+        run: npm ci
+
+      - name: Test
+        working-directory: web
+        run: npm test
+
+      - name: Build
+        working-directory: web
+        run: npm run build

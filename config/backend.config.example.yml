@@ -1,5 +1,5 @@
 video_source: file
-video_path: testdata/videos/855564-hd_1920_1080_24fps.mp4
+video_path: testdata/videos/top_view_1920_1080_25fps.mp4
 rtsp_url: null
 model_name: yolo11l.pt
 # Supported YOLO11 sizes: yolo11n.pt | yolo11s.pt | yolo11l.pt

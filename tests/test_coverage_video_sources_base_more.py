@@ -56,6 +56,86 @@ def test_file_source_and_rtsp_source_use_opencv_source(monkeypatch):
     vs.RTSPSource("rtsp://example").close()
 
 
+def test_rtsp_source_falls_back_when_ffmpeg_backend_fails(monkeypatch):
+    # Force the "FFmpeg" candidate branch to exist.
+    monkeypatch.setattr(vs.cv2, "CAP_FFMPEG", 1900, raising=False)
+
+    first = _FakeCap(opened=False)
+    second = _FakeCap(opened=True)
+
+    def _vc(*args):
+        # First attempt: called as VideoCapture(url, backend)
+        if len(args) >= 2:
+            return first
+        # Second attempt: called as VideoCapture(url)
+        return second
+
+    monkeypatch.setattr(vs.cv2, "VideoCapture", _vc)
+
+    src = vs.RTSPSource("rtsp://example")
+    assert first.released is True
+    assert src.cap is second
+    src.close()
+
+
+def test_rtsp_source_sets_timeouts_and_ignores_set_errors(monkeypatch):
+    monkeypatch.setattr(vs.cv2, "CAP_FFMPEG", 1900, raising=False)
+    monkeypatch.setattr(vs.cv2, "CAP_PROP_OPEN_TIMEOUT_MSEC", 12345, raising=False)
+    monkeypatch.setattr(vs.cv2, "CAP_PROP_READ_TIMEOUT_MSEC", 23456, raising=False)
+
+    class _CapSetFails(_FakeCap):
+        def set(self, prop, value):
+            raise RuntimeError("set failed")
+
+    monkeypatch.setattr(vs.cv2, "VideoCapture", lambda *_a, **_k: _CapSetFails(opened=True))
+
+    # Should not raise even if cap.set throws.
+    src = vs.RTSPSource("rtsp://example")
+    assert src.cap is not None
+    src.close()
+
+
+def test_rtsp_source_raises_with_last_exception(monkeypatch):
+    monkeypatch.setattr(vs.cv2, "CAP_FFMPEG", 1900, raising=False)
+
+    def _vc(*_a, **_k):
+        raise RuntimeError("backend error")
+
+    monkeypatch.setattr(vs.cv2, "VideoCapture", _vc)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        vs.RTSPSource("rtsp://example")
+
+    assert "Failed to open RTSP source" in str(excinfo.value)
+
+
+def test_rtsp_source_raises_without_last_exception_when_not_opened(monkeypatch):
+    monkeypatch.setattr(vs.cv2, "CAP_FFMPEG", 1900, raising=False)
+    monkeypatch.setattr(vs.cv2, "VideoCapture", lambda *_a, **_k: _FakeCap(opened=False))
+
+    with pytest.raises(RuntimeError) as excinfo:
+        vs.RTSPSource("rtsp://example")
+
+    # This path should not include an inner exception message.
+    assert str(excinfo.value).startswith("Failed to open RTSP source")
+
+
+def test_rtsp_source_skips_timeouts_when_props_missing(monkeypatch):
+    monkeypatch.setattr(vs.cv2, "CAP_FFMPEG", 1900, raising=False)
+    monkeypatch.setattr(vs.cv2, "CAP_PROP_OPEN_TIMEOUT_MSEC", None, raising=False)
+    monkeypatch.setattr(vs.cv2, "CAP_PROP_READ_TIMEOUT_MSEC", None, raising=False)
+
+    cap = _FakeCap(opened=True)
+    monkeypatch.setattr(vs.cv2, "VideoCapture", lambda *_a, **_k: cap)
+
+    src = vs.RTSPSource("rtsp://example")
+    # Timeouts were missing -> should not attempt setting them.
+    # Buffer size may still be set.
+    assert all(call[0] != 12345 for call in cap.set_calls)
+    assert all(call[0] != 23456 for call in cap.set_calls)
+    src.close()
+
+
 def test_file_source_loops_on_eof_by_rewinding(monkeypatch):
     f1 = np.zeros((2, 2, 3), dtype=np.uint8)
     f2 = np.ones((2, 2, 3), dtype=np.uint8)

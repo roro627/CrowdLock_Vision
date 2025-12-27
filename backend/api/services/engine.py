@@ -133,13 +133,19 @@ class VideoEngine:
     def _make_source(self) -> VideoSource:
         """Instantiate the configured `VideoSource`."""
 
-        if self.settings.video_source == "file" and self.settings.video_path:
+        if self.settings.video_source == "file":
+            if not self.settings.video_path:
+                raise RuntimeError("video_path is required when video_source=file")
             video_path = Path(self.settings.video_path)
             if not video_path.exists():
                 raise RuntimeError(f"Video path not found: {video_path}")
             return FileSource(str(video_path))
-        if self.settings.video_source == "rtsp" and self.settings.rtsp_url:
+
+        if self.settings.video_source == "rtsp":
+            if not self.settings.rtsp_url:
+                raise RuntimeError("rtsp_url is required when video_source=rtsp")
             return RTSPSource(self.settings.rtsp_url)
+
         return WebcamSource(0)
 
     def start(self) -> None:
@@ -152,9 +158,9 @@ class VideoEngine:
             return
         try:
             self.source = self._make_source()
-        except Exception:
-            self.last_error = "Failed to initialize video source"
-            logger.exception(self.last_error)
+        except Exception as exc:
+            self.last_error = f"Failed to initialize video source: {exc}"
+            logger.exception("Failed to initialize video source")
             return
         self.running = True
         self.last_error = None

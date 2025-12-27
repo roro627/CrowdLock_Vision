@@ -53,6 +53,22 @@ def test_make_source_file_missing_raises(engine: engine_mod.VideoEngine, tmp_pat
         engine._make_source()
 
 
+def test_make_source_file_without_video_path_raises(engine: engine_mod.VideoEngine):
+    engine.settings.video_source = "file"
+    engine.settings.video_path = None
+
+    with pytest.raises(RuntimeError, match="video_path is required"):
+        engine._make_source()
+
+
+def test_make_source_rtsp_without_rtsp_url_raises(engine: engine_mod.VideoEngine):
+    engine.settings.video_source = "rtsp"
+    engine.settings.rtsp_url = None
+
+    with pytest.raises(RuntimeError, match="rtsp_url is required"):
+        engine._make_source()
+
+
 def test_start_sets_error_when_source_init_fails(
     engine: engine_mod.VideoEngine, monkeypatch: pytest.MonkeyPatch
 ):
@@ -60,7 +76,8 @@ def test_start_sets_error_when_source_init_fails(
 
     engine.start()
     assert engine.running is False
-    assert engine.last_error == "Failed to initialize video source"
+    assert engine.last_error is not None
+    assert engine.last_error.startswith("Failed to initialize video source")
 
 
 def test_encode_loop_downscales_and_sets_latest_frame(

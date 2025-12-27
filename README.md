@@ -36,6 +36,17 @@
 
 **Requirements:** Python 3.12, Node.js + npm, and Docker (recommended for the backend).
 
+### Prereq: Git LFS (required for demo videos)
+
+This repo stores `testdata/videos/*.mp4` via **Git LFS**. If you clone without LFS, you will get pointer files instead of real MP4s, and **Demo Mode** / some tests will fail.
+
+```bash
+git lfs install
+git clone <your-repo-url>
+cd CrowdLock_Vision
+git lfs pull
+```
+
 ```bash
 # 1. Check your environment
 make doctor
@@ -116,7 +127,7 @@ make dev
 
    ```yaml
    video_source: file
-   video_path: testdata/videos/855564-hd_1920_1080_24fps.mp4
+   video_path: testdata/videos/top_view_1920_1080_25fps.mp4
    ```
 
 2. Run `make dev`
@@ -184,7 +195,7 @@ export CLV_CONFIDENCE=0.4
 
 ```bash
 python -m backend.tools.run_on_video \
-  --input testdata/videos/855564-hd_1920_1080_24fps.mp4 \
+   --input testdata/videos/top_view_1920_1080_25fps.mp4 \
   --output results.json \
   --max-frames 200
 ```
