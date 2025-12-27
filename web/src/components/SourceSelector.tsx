@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api, BackendConfig, PresetInfo } from '../api/client';
+import { VideoFileDropdown } from './VideoFileDropdown';
 
 interface Props {
   onStatus: (status: 'idle' | 'saving' | 'error' | 'saved') => void;
@@ -169,15 +170,24 @@ export function SourceSelector({ onStatus }: Props) {
           </select>
         </label>
         {cfg.video_source === 'file' && (
-          <label className="flex items-center gap-2">
-            <span className="w-28 text-sm text-slate-300">File Path</span>
-            <input
-              className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
-              value={cfg.video_path || ''}
-              onChange={(e) => handleChange('video_path', e.target.value)}
-              placeholder="testdata/videos/clip.mp4"
-            />
-          </label>
+          <div className="grid grid-cols-1 gap-3">
+            <label className="flex items-center gap-2">
+              <span className="w-28 text-sm text-slate-300">Video</span>
+              <VideoFileDropdown
+                value={cfg.video_path || ''}
+                onChange={(next) => handleChange('video_path', next)}
+              />
+            </label>
+            <label className="flex items-center gap-2">
+              <span className="w-28 text-sm text-slate-300">Custom</span>
+              <input
+                className="card px-3 py-2 w-full bg-slate-900/80 border border-slate-700"
+                value={cfg.video_path || ''}
+                onChange={(e) => handleChange('video_path', e.target.value)}
+                placeholder="testdata/videos/clip.mp4"
+              />
+            </label>
+          </div>
         )}
         {cfg.video_source === 'rtsp' && (
           <label className="flex items-center gap-2">

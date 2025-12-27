@@ -101,8 +101,8 @@ def check_project_files(root: Path) -> list[CheckResult]:
         results.append(
             CheckResult(
                 "config/backend.config.yml",
-                False,
-                "missing (copy config/backend.config.example.yml -> config/backend.config.yml)",
+                True,
+                "missing (OK: docker uses baked-in defaults; copy example to override)",
             )
         )
     else:

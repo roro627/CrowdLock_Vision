@@ -5,7 +5,7 @@
 **Real-time multi-person detection, tracking & analytics**  
 *CPU-optimized vision pipeline with frame-perfect overlay synchronization*
 
-[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.125+-teal.svg)](https://fastapi.tiangolo.com/)

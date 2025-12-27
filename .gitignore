@@ -3,6 +3,7 @@ web/tsconfig.tsbuildinfo
 web/tsconfig.node.tsbuildinfo
 web/vite.config.d.ts
 dist/
+web/package-lock.json
 node_modules/
 web/dist/
 web/node_modules/

@@ -9,7 +9,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.api.routes import config, health, stats, stream
+from backend.api.routes import config, health, media, stats, stream
 
 
 @asynccontextmanager
@@ -39,7 +39,8 @@ app.include_router(health.router)
 app.include_router(config.router)
 app.include_router(stats.router)
 app.include_router(stream.router)
+app.include_router(media.router)
 
 
 if __name__ == "__main__":
-    uvicorn.run("backend.api.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend.api.main:app", host="0.0.0.0", port=8000, reload=True)  # pragma: no cover

@@ -9,7 +9,8 @@ services:
       - PYTHONPATH=/app
       - CLV_CONFIG=/app/config/backend.config.yml
     volumes:
-      - ./config/backend.config.yml:/app/config/backend.config.yml:ro
+      # Optional: override runtime config (copy example -> config/backend.config.yml and uncomment)
+      # - ./config/backend.config.yml:/app/config/backend.config.yml:ro
       - ./testdata/videos:/app/testdata/videos:ro
     restart: unless-stopped
     shm_size: '1g'

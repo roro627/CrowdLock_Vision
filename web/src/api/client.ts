@@ -62,6 +62,12 @@ export interface PresetListResponse {
   presets: PresetInfo[];
 }
 
+export interface VideoFileInfo {
+  name: string;
+  path: string;
+  thumbnail_url: string;
+}
+
 /**
  * Perform a JSON request against the backend API.
  */
@@ -88,6 +94,7 @@ export const api = {
       body: JSON.stringify(cfg),
     }),
   getPresets: () => request<PresetListResponse>('/config/presets'),
+  listVideos: () => request<VideoFileInfo[]>('/media/videos'),
   applyPreset: (presetId: string) =>
     request<BackendConfig>(`/config/presets/${presetId}`, {
       method: 'POST',
