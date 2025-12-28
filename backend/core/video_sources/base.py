@@ -302,7 +302,10 @@ class RTSPSource(OpenCVSource):
         self.cap = None
         last_exc: Exception | None = None
 
-        candidates: list[tuple[str, int | None]] = [(url, getattr(cv2, "CAP_FFMPEG", None)), (url, None)]
+        candidates: list[tuple[str, int | None]] = [
+            (url, getattr(cv2, "CAP_FFMPEG", None)),
+            (url, None),
+        ]
         for src, backend in candidates:
             try:
                 cap = cv2.VideoCapture(src) if backend is None else cv2.VideoCapture(src, backend)

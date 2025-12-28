@@ -70,7 +70,7 @@ class ConfigSchema(BaseModel):
     profile_steps: bool = False
 
     @model_validator(mode="after")
-    def _validate_source_fields(self) -> "ConfigSchema":
+    def _validate_source_fields(self) -> ConfigSchema:
         """Validate required fields depending on `video_source`."""
 
         if self.video_source == "file" and not self.video_path:

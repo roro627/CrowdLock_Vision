@@ -26,7 +26,7 @@ describe('drawOverlay (density band)', () => {
     canvas.width = 100;
     canvas.height = 80;
 
-    const ctx: any = {
+    const ctx = {
       clearRect: vi.fn(),
       fillRect: vi.fn(),
       strokeRect: vi.fn(),
@@ -39,9 +39,11 @@ describe('drawOverlay (density band)', () => {
       strokeStyle: '',
       fillStyle: '',
       font: '',
-    };
+    } as unknown as CanvasRenderingContext2D;
 
-    (canvas as any).getContext = vi.fn().mockReturnValue(ctx);
+    Object.defineProperty(canvas, 'getContext', {
+      value: vi.fn().mockReturnValue(ctx),
+    });
 
     drawOverlay(
       canvas,
@@ -54,14 +56,14 @@ describe('drawOverlay (density band)', () => {
         },
       }),
       {
-      frame: makePayload(),
-      showBoxes: false,
-      showHead: false,
-      showBody: false,
-      showDensity: true,
-      videoUrl: 'http://example/stream/video',
-      connection: 'connected',
-      backendError: null,
+        frame: makePayload(),
+        showBoxes: false,
+        showHead: false,
+        showBody: false,
+        showDensity: true,
+        videoUrl: 'http://example/stream/video',
+        connection: 'connected',
+        backendError: null,
       }
     );
 
@@ -75,13 +77,15 @@ describe('drawOverlay (density band)', () => {
     canvas.width = 100;
     canvas.height = 80;
 
-    const ctx: any = {
+    const ctx = {
       clearRect: vi.fn(),
       fillRect: vi.fn(),
       strokeRect: vi.fn(),
-    };
+    } as unknown as CanvasRenderingContext2D;
 
-    (canvas as any).getContext = vi.fn().mockReturnValue(ctx);
+    Object.defineProperty(canvas, 'getContext', {
+      value: vi.fn().mockReturnValue(ctx),
+    });
 
     drawOverlay(canvas, makePayload(), {
       frame: makePayload(),

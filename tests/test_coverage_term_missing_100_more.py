@@ -37,7 +37,9 @@ def test_video_source_abstract_methods_raise():
         src.close()
 
 
-def test_webcam_source_ignores_set_failures_and_candidate_exceptions(monkeypatch: pytest.MonkeyPatch):
+def test_webcam_source_ignores_set_failures_and_candidate_exceptions(
+    monkeypatch: pytest.MonkeyPatch,
+):
     frame = np.zeros((2, 2, 3), dtype=np.uint8)
     calls = {"n": 0}
 
@@ -383,7 +385,9 @@ def test_stream_video_dedup_and_headers(monkeypatch: pytest.MonkeyPatch):
     assert b"Content-Length" in b
 
 
-def test_stream_video_without_stream_packet_uses_latest_stream_summary(monkeypatch: pytest.MonkeyPatch):
+def test_stream_video_without_stream_packet_uses_latest_stream_summary(
+    monkeypatch: pytest.MonkeyPatch,
+):
     @dataclass
     class _Sum:
         frame_id: int
@@ -484,7 +488,9 @@ def test_stream_metadata_ping_and_type_errors(monkeypatch: pytest.MonkeyPatch):
     assert any(p.get("type") == "pong" for p in ws.sent)
 
 
-def test_stream_metadata_ping_receive_exceptions_and_send_disconnect(monkeypatch: pytest.MonkeyPatch):
+def test_stream_metadata_ping_receive_exceptions_and_send_disconnect(
+    monkeypatch: pytest.MonkeyPatch,
+):
     """Cover _poll_and_handle_ping exception branches and disconnect on pong send."""
 
     class _Engine:
@@ -569,7 +575,9 @@ def test_stream_metadata_alt_engine_closed_send_return(monkeypatch: pytest.Monke
     asyncio.run(stream_routes.stream_metadata(_WS()))
 
 
-def test_stream_metadata_ping_send_valueerror_covers_non_runtimeerror(monkeypatch: pytest.MonkeyPatch):
+def test_stream_metadata_ping_send_valueerror_covers_non_runtimeerror(
+    monkeypatch: pytest.MonkeyPatch,
+):
     """Cover _is_closed_send_error non-RuntimeError path (line 90) via ping handling."""
 
     class _Engine:
@@ -693,7 +701,9 @@ def test_stream_metadata_mainloop_closed_send_runtimeerror_returns(monkeypatch: 
     asyncio.run(stream_routes.stream_metadata(_WS()))
 
 
-def test_stream_metadata_mainloop_send_valueerror_logs_and_continues(monkeypatch: pytest.MonkeyPatch):
+def test_stream_metadata_mainloop_send_valueerror_logs_and_continues(
+    monkeypatch: pytest.MonkeyPatch,
+):
     """Cover main-loop exception logging path (lines 180-183)."""
 
     class _Engine:
@@ -825,11 +835,19 @@ def test_pipeline_roi_track_loss_sets_force_full_frame(monkeypatch: pytest.Monke
             # First infer: 4 tracks; second infer: 1 track -> loss triggers.
             if self.calls == 1:
                 return [
-                    TrackedPerson(id=i, bbox=(0, 0, 1, 1), head_center=(0, 0), body_center=(0, 0), confidence=1.0)
+                    TrackedPerson(
+                        id=i,
+                        bbox=(0, 0, 1, 1),
+                        head_center=(0, 0),
+                        body_center=(0, 0),
+                        confidence=1.0,
+                    )
                     for i in range(4)
                 ]
             return [
-                TrackedPerson(id=0, bbox=(0, 0, 1, 1), head_center=(0, 0), body_center=(0, 0), confidence=1.0)
+                TrackedPerson(
+                    id=0, bbox=(0, 0, 1, 1), head_center=(0, 0), body_center=(0, 0), confidence=1.0
+                )
             ]
 
     roi_cfg = RoiConfig(enabled=True, force_full_frame_on_track_loss=0.25)
@@ -921,7 +939,7 @@ def test_settings_import_branches_are_coverable(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr(importlib, "import_module", _import_module)
     imported = importlib.import_module(mod_name)
-    assert getattr(imported, "SettingsConfigDict") is not None
+    assert imported.SettingsConfigDict is not None
     assert hasattr(imported.BackendSettings, "model_config")
 
     # Restore: remove and re-import with normal behavior.
@@ -1029,8 +1047,18 @@ def test_roi_term_missing_edges():
         roi_mod.estimate_best_mosaic_area(frame_shape=frame.shape, rois=[])
 
     # split_and_reproject early-return paths
-    assert roi_mod.split_and_reproject_mosaic_detections([], [roi_mod.PackedRoi((0, 0, 1, 1), 0, 0, 1, 1)]) == []
-    assert roi_mod.split_and_reproject_mosaic_detections([Detection(bbox=(0, 0, 1, 1), confidence=0.9)], []) == []
+    assert (
+        roi_mod.split_and_reproject_mosaic_detections(
+            [], [roi_mod.PackedRoi((0, 0, 1, 1), 0, 0, 1, 1)]
+        )
+        == []
+    )
+    assert (
+        roi_mod.split_and_reproject_mosaic_detections(
+            [Detection(bbox=(0, 0, 1, 1), confidence=0.9)], []
+        )
+        == []
+    )
 
     # frame.ndim != 3 branch in packer
     gray = np.zeros((10, 10), dtype=np.uint8)
@@ -1171,7 +1199,9 @@ def test_engine_encode_updates_out_fps_and_getters(monkeypatch: pytest.MonkeyPat
     eng._out_fps = 0.0
 
     frame = np.zeros((2, 2, 3), dtype=np.uint8)
-    summary = FrameSummary(frame_id=1, timestamp=0.0, persons=[], density={}, fps=1.0, frame_size=(2, 2))
+    summary = FrameSummary(
+        frame_id=1, timestamp=0.0, persons=[], density={}, fps=1.0, frame_size=(2, 2)
+    )
     eng._encode_queue.put((frame, summary))
     eng._encode_event.set()
 
@@ -1233,7 +1263,9 @@ def test_pipeline_roi_mosaic_happy_path(monkeypatch: pytest.MonkeyPatch):
 
     d0 = Detection(bbox=(0, 0, 1, 1), confidence=0.9)
     monkeypatch.setattr(pipe, "_detect_full_frame", lambda *_a, **_k: [d0])
-    monkeypatch.setattr(pipeline_mod, "split_and_reproject_mosaic_detections", lambda dets, packed: dets)
+    monkeypatch.setattr(
+        pipeline_mod, "split_and_reproject_mosaic_detections", lambda dets, packed: dets
+    )
     monkeypatch.setattr(pipeline_mod, "nms_detections", lambda dets, _iou: dets)
 
     dets, used = pipe._detect_with_rois(
@@ -1314,7 +1346,9 @@ def test_pipeline_motion_predicted_rois_uses_shift_bbox(monkeypatch: pytest.Monk
     )
 
     pipe._last_persons = [
-        TrackedPerson(id=1, bbox=(10, 10, 12, 12), head_center=(0, 0), body_center=(0, 0), confidence=1.0)
+        TrackedPerson(
+            id=1, bbox=(10, 10, 12, 12), head_center=(0, 0), body_center=(0, 0), confidence=1.0
+        )
     ]
     pipe._prev_infer_bboxes_by_id = {1: (0, 0, 2, 2)}
 

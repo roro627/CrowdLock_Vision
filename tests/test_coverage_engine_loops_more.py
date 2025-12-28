@@ -202,7 +202,9 @@ def test_process_loop_profiles_and_encode_updates(monkeypatch):
 
 
 def test_profile_steps_capture_and_overlay_disabled(monkeypatch):
-    engine = _make_engine(monkeypatch, enable_backend_overlays=False, target_fps=0, profile_steps=True)
+    engine = _make_engine(
+        monkeypatch, enable_backend_overlays=False, target_fps=0, profile_steps=True
+    )
     frame = np.zeros((10, 10, 3), dtype=np.uint8)
 
     class _Src:
@@ -586,7 +588,12 @@ def test_process_loop_skips_byte_identical_frames(monkeypatch):
     def _process(_frame, inference_width=None, inference_stride=None):
         calls["n"] += 1
         summary = FrameSummary(
-            frame_id=calls["n"], timestamp=1.0, persons=[], density={}, fps=123.0, frame_size=(10, 10)
+            frame_id=calls["n"],
+            timestamp=1.0,
+            persons=[],
+            density={},
+            fps=123.0,
+            frame_size=(10, 10),
         )
         return summary, _frame
 
@@ -691,11 +698,19 @@ def test_process_loop_processed_fps_window_prunes_old_samples(monkeypatch):
 
     # 3 iterations * (start, end, now) = 9 perf_counter calls.
     # now values for processed window: 0.0, 0.5, 2.0 => should prune older entries.
-    pc_times = iter([
-        0.0, 0.01, 0.0,
-        0.4, 0.41, 0.5,
-        1.9, 1.91, 2.0,
-    ])
+    pc_times = iter(
+        [
+            0.0,
+            0.01,
+            0.0,
+            0.4,
+            0.41,
+            0.5,
+            1.9,
+            1.91,
+            2.0,
+        ]
+    )
     monkeypatch.setattr(eng.time, "perf_counter", lambda: next(pc_times))
 
     def _process(_frame, inference_width=None, inference_stride=None):

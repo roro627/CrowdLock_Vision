@@ -77,7 +77,11 @@ def test_media_thumbnail_happy_path_with_resize(tmp_path: Path, monkeypatch: pyt
             return None
 
     monkeypatch.setattr(media.cv2, "VideoCapture", lambda _: FakeCap())
-    monkeypatch.setattr(media.cv2, "resize", lambda frame, _size, interpolation=None: frame[:, : media.THUMBNAIL_WIDTH_PX, :])
+    monkeypatch.setattr(
+        media.cv2,
+        "resize",
+        lambda frame, _size, interpolation=None: frame[:, : media.THUMBNAIL_WIDTH_PX, :],
+    )
     monkeypatch.setattr(media.cv2, "imencode", lambda *_args, **_kw: (True, b"JPEG2"))
 
     client = TestClient(app)
@@ -105,7 +109,9 @@ def test_media_thumbnail_read_failure_returns_422(tmp_path: Path, monkeypatch: p
     assert res.status_code == 422
 
 
-def test_media_thumbnail_encode_failure_returns_500(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_media_thumbnail_encode_failure_returns_500(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     (tmp_path / "enc.mp4").write_bytes(b"x")
     monkeypatch.setattr(media, "VIDEOS_DIR", tmp_path)
     media._thumbnail_bytes_cache.cache_clear()
@@ -139,7 +145,9 @@ def test_media_thumbnail_rejects_backslash_and_encoded_slash():
     assert res2.status_code == 404
 
 
-def test_media_thumbnail_404_on_missing_and_bad_suffix(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_media_thumbnail_404_on_missing_and_bad_suffix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     (tmp_path / "note.txt").write_bytes(b"x")
     monkeypatch.setattr(media, "VIDEOS_DIR", tmp_path)
     media._thumbnail_bytes_cache.cache_clear()

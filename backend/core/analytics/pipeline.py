@@ -21,17 +21,18 @@ from backend.core.roi import (
     estimate_best_mosaic_area,
     merge_rois,
     nms_detections,
-    pack_rois_best_grid as _pack_rois_best_grid,
-    pack_rois_grid,
     reproject_detection,
     shift_bbox,
     split_and_reproject_mosaic_detections,
 )
+from backend.core.roi import (
+    pack_rois_best_grid as _pack_rois_best_grid,
+)
+from backend.core.trackers.simple_tracker import SimpleTracker
+from backend.core.types import Detection, FrameSummary, TrackedPerson
 
 # Backward-compat alias for tests that monkeypatch this symbol.
 pack_rois_best_grid = _pack_rois_best_grid
-from backend.core.trackers.simple_tracker import SimpleTracker
-from backend.core.types import Detection, FrameSummary, TrackedPerson
 
 
 class PersonDetector(Protocol):

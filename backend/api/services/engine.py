@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import threading
 import time
-from dataclasses import replace
 from collections import deque
 from collections.abc import AsyncGenerator
+from dataclasses import replace
 from pathlib import Path
 from queue import Empty, Queue
-import hashlib
 
 import cv2
 import numpy as np

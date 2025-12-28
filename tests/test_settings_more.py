@@ -61,7 +61,12 @@ def test_density_from_settings_parses_grid():
 
 
 def test_density_hotspot_max_area_fraction_validation():
-    assert cfg.BackendSettings(density_hotspot_max_area_fraction=0.25).density_hotspot_max_area_fraction == 0.25
+    assert (
+        cfg.BackendSettings(
+            density_hotspot_max_area_fraction=0.25
+        ).density_hotspot_max_area_fraction
+        == 0.25
+    )
     with pytest.raises(ValueError):
         cfg.BackendSettings(density_hotspot_max_area_fraction=0.0)
     with pytest.raises(ValueError):
