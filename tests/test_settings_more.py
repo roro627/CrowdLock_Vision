@@ -55,6 +55,30 @@ def test_config_path_defaults_when_env_missing(monkeypatch: pytest.MonkeyPatch):
     assert str(path).replace("\\", "/").endswith("config/backend.config.yml")
 
 
+def test_load_settings_falls_back_to_example_when_default_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.delenv("CLV_CONFIG", raising=False)
+    (tmp_path / "config").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "config" / "backend.config.example.yml").write_text(
+        """
+video_source: file
+video_path: testdata/videos/demo.mp4
+model_name: yolo11l.pt
+model_task: detect
+confidence: 0.35
+grid_size: 10x10
+smoothing: 0.2
+""".lstrip(),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    settings = cfg.load_settings()
+    assert settings.video_source == "file"
+    assert settings.video_path == "testdata/videos/demo.mp4"
+
+
 def test_density_from_settings_parses_grid():
     settings = cfg.BackendSettings(grid_size="3x4")
     assert cfg.density_from_settings(settings) == (3, 4)

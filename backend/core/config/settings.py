@@ -214,6 +214,14 @@ def load_settings() -> BackendSettings:
     if path.exists():
         with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
+    elif "CLV_CONFIG" not in os.environ:
+        # In CI/clean checkouts we may not have a user-specific
+        # `config/backend.config.yml` checked in. Fall back to the tracked
+        # example config so defaults are coherent.
+        example_path = Path("config/backend.config.example.yml")
+        if example_path.exists():
+            with open(example_path, encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
 
     env_settings = BackendSettings()
     env_overrides: dict[str, Any] = {
